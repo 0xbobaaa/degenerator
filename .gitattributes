@@ -1,0 +1,7 @@
+# LF everywhere, in the repository and in every working copy.
+#
+# Two things depend on it. The Makefile's recipes break under CRLF, and a
+# Windows checkout converts them by default. And degenerator writes generated
+# files as bytes with explicit \n, so a source tree that drifted to CRLF would
+# make the tool's own line endings inconsistent with what it emits.
+* text=auto eol=lf
