@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "degenerator"
+version = "0.1.0"
+description = "One spec in, one degen bot out."
+readme = "README.md"
+requires-python = ">=3.9"
+# No runtime dependencies, on purpose. Standard library only.
+dependencies = []
+
+[project.scripts]
+degenerator = "degenerator.cli:main"
+
+[tool.setuptools]
+packages = ["degenerator"]

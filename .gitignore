@@ -1,0 +1,10 @@
+# Receipts are written next to wherever degenerator was invoked, so `make
+# example` drops them right here. They are a local audit log and they carry
+# the absolute path of the spec that was read: never commit them.
+runs/
+
+build/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/

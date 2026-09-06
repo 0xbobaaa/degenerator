@@ -1,0 +1,40 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.9", "3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: install
+        run: pip install -e .
+      - name: unittest
+        run: python -W error::SyntaxWarning -m unittest discover -s tests -q
+
+  generated-repo:
+    # The tool suite already runs the generated repo's tests; this job also
+    # builds the image it generates, which nothing else here can prove.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: generate
+        run: python -m degenerator.cli new examples/momentum.spec.md -o build/momentum-degen
+      - name: the generated repo passes its own tests
+        run: make test
+        working-directory: build/momentum-degen
+      - name: the generated Dockerfile builds
+        run: docker build -t momentum-degen .
+        working-directory: build/momentum-degen
