@@ -2,6 +2,10 @@
 
 One spec in, one degen bot out.
 
+[![ci](https://github.com/0xbobaaa/degenerator/actions/workflows/ci.yml/badge.svg)](https://github.com/0xbobaaa/degenerator/actions/workflows/ci.yml)
+
+**https://0xbobaaa.github.io/degenerator/**
+
 `degenerator` reads a one-page spec file and writes a complete, working crypto
 trading-bot repository: source, tests, Dockerfile, GitHub Actions CI,
 `.env.example`, an initialised git repo with the first commit made, and a JSON
