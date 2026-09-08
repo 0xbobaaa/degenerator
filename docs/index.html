@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>degenerator — one spec in, one degen bot out</title>
 <meta name="description" content="A standard-library-only CLI that turns a one-page spec into a complete, working paper-mode trading-bot repository: source, tests, Dockerfile, CI and a receipt.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23ffffff'/%3E%3Cpath d='M3 4l4 4-4 4' stroke='%232B2BE8' stroke-width='2' fill='none'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23FAF9F7'/%3E%3Cpath d='M3 4l4 4-4 4' stroke='%232B2BE8' stroke-width='2' fill='none'/%3E%3C/svg%3E">
 
 <!--
   Token constants live in exactly these places and nowhere else:
@@ -17,13 +17,18 @@
 
 <style>
   :root {
-    --paper:  #FFFFFF;
-    --panel:  #F1F2F4;
-    --rule:   #D8DBDF;
+    --paper:  #FAF9F7;
+    --panel:  #F2F0EB;
+    --rule:   #E0DBD2;
     --ink:    #101215;
     --muted:  #6B7078;
     --signal: #2B2BE8;
     --refuse: #C8102E;
+
+    /* Drafting-paper grid, behind the hero only. Ink at 5% on warm paper:
+       visible if you look for it, invisible while you read. */
+    --grid: rgba(16, 18, 21, 0.05);
+    --grid-step: 24px;
 
     --prose: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -94,7 +99,18 @@
 
   /* --- hero ----------------------------------------------------------- */
 
-  header.hero { padding: 3.5rem 0 0; }
+  header.hero {
+    padding: 3.5rem 0 0;
+    /* The first layer fades the grid out downward, so it ends without a seam.
+       Its start colour is --paper at zero alpha, written out because a custom
+       property cannot carry an alpha channel of its own. */
+    background-image:
+      linear-gradient(to bottom, rgba(250, 249, 247, 0) 55%, var(--paper) 100%),
+      repeating-linear-gradient(to right,
+        var(--grid), var(--grid) 1px, transparent 1px, transparent var(--grid-step)),
+      repeating-linear-gradient(to bottom,
+        var(--grid), var(--grid) 1px, transparent 1px, transparent var(--grid-step));
+  }
 
   h1 {
     font-family: var(--mono);
@@ -586,7 +602,7 @@ tests/
     <ul class="tokenlinks">
       <li><a href="https://x.com/0xbobaaa">X</a></li>
       <li><a href="https://github.com/0xbobaaa/degenerator">GitHub</a></li>
-      <li class="none">Telegram — none yet</li>
+      <li><a href="https://t.me/bobaonee">Telegram</a></li>
       <li class="none">Chart — none yet</li>
       <li class="none">Explorer — when there is a contract</li>
     </ul>
@@ -636,6 +652,7 @@ tests/
       <li><a href="https://github.com/0xbobaaa/degenerator">Source</a></li>
       <li><a href="https://github.com/0xbobaaa/degenerator/issues">Issues</a></li>
       <li><a href="https://x.com/0xbobaaa">@0xbobaaa</a></li>
+      <li><a href="https://t.me/bobaonee">Telegram</a></li>
       <li>MIT</li>
     </ul>
     <p>Nothing here is financial advice.</p>
