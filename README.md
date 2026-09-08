@@ -66,7 +66,7 @@ rules:
 
 | key | default | notes |
 | --- | --- | --- |
-| `venue` | `paper` | one of `hyperliquid`, `dydx`, `paper` |
+| `venue` | `paper` | one of `hyperliquid`, `dydx`, `robinhood`, `paper` |
 | `pairs` | `BTC` | comma separated |
 | `timeframe` | `5m` | free text, copied into the strategy as a comment |
 | `max_position` | `0.05` | share of equity per position, `%` accepted |
@@ -80,6 +80,11 @@ rules:
 - A spec with no `rules:` is refused: a bot with no rules is a random number
   generator.
 - An unknown `venue` is refused, and the error lists the valid ones.
+- `robinhood` is spot only. Robinhood Chain is an Ethereum layer-2 with no
+  leverage to give, so a spec that pairs it with `leverage` above `1` is
+  refused, pointing at the `leverage` line you need to delete. Its generated
+  adapter marks fills `model=swap` rather than pretending there is an order
+  book.
 - Rules are copied verbatim into `strategy.py` as comments. degenerator does
   not try to parse English into code.
 

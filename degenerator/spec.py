@@ -13,7 +13,11 @@ from typing import Dict, List, Union
 
 Number = Union[int, float]
 
-VENUES = ("hyperliquid", "dydx", "paper")
+VENUES = ("hyperliquid", "dydx", "robinhood", "paper")
+
+#: Spot venues have no leverage to give. Naming them here keeps the refusal
+#: below honest about why it fires.
+SPOT_ONLY = ("robinhood",)
 
 #: The documented defaults. Templates read them from here, so a generated
 #: README cannot claim a default the parser does not actually apply.
@@ -195,6 +199,17 @@ def parse(text: str, source: str = "<spec>") -> Spec:
             numbers[key] = _number(key, values[key], source, lines[key])
         else:
             numbers[key] = DEFAULTS[key]
+
+    if venue in SPOT_ONLY and numbers["leverage"] != 1:
+        # Point at the leverage line, not the venue line: that is the line the
+        # user has to delete. It is always in `lines` when this fires — without
+        # a leverage line the value comes from DEFAULTS and is 1.
+        raise SpecError(
+            "{0}:{1}: leverage {2} with venue {3!r}: {3} chain is spot "
+            "only, drop the leverage line".format(
+                source, lines["leverage"], numbers["leverage"], venue
+            )
+        )
 
     title_text = title
     return Spec(

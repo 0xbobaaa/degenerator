@@ -25,6 +25,8 @@ ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "examples"
 MOMENTUM = EXAMPLES / "momentum.spec.md"
 MEANREVERT = EXAMPLES / "meanrevert.spec.md"
+ROBINHOOD = EXAMPLES / "robinhood.spec.md"
+ALL_EXAMPLES = (MOMENTUM, MEANREVERT, ROBINHOOD)
 
 #: Criterion 7, as a test rather than a grep: generated code imports these and
 #: nothing else. Anything outside the two sets is a dependency in disguise.
@@ -87,7 +89,11 @@ class TestTable(unittest.TestCase):
             self.assertEqual(files_on_disk(out), sorted(scaffold.plan(spec)))
 
     def test_the_venue_file_is_named_for_the_venue(self):
-        for spec_path, expected in ((MOMENTUM, "hyperliquid"), (MEANREVERT, "dydx")):
+        for spec_path, expected in (
+            (MOMENTUM, "hyperliquid"),
+            (MEANREVERT, "dydx"),
+            (ROBINHOOD, "robinhood"),
+        ):
             paths = scaffold.plan(parse_file(spec_path))
             self.assertIn("src/venue/{0}.py".format(expected), paths)
             self.assertEqual(1, len([p for p in paths if p.startswith("src/venue/") and "base" not in p]))
@@ -195,6 +201,79 @@ class TestGeneratedRepo(unittest.TestCase):
     def test_reported_bytes_match_the_bytes_on_disk(self):
         on_disk = sum((self.out / rel).stat().st_size for rel in self.result.files)
         self.assertEqual(self.result.bytes, on_disk)
+
+
+class TestRobinhoodRepo(unittest.TestCase):
+    """The spot venue: a swap fill model, an RPC endpoint, and no key field."""
+
+    @classmethod
+    def setUpClass(cls):
+        cls._tmp = Path(tempfile.mkdtemp(prefix="degenerator-rh-"))
+        cls.spec = parse_file(ROBINHOOD)
+        cls.out = cls._tmp / "robinhood-degen"
+        scaffold.write(cls.spec, cls.out, no_git=True)
+
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(str(cls._tmp), ignore_errors=True)
+
+    def test_its_own_test_suite_passes(self):
+        done = subprocess.run(
+            [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"],
+            cwd=str(self.out),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        self.assertEqual(done.returncode, 0, done.stdout.decode("utf-8", "replace"))
+
+    def test_env_example_asks_for_an_rpc_url_and_no_key(self):
+        env = (self.out / ".env.example").read_text(encoding="utf-8")
+        self.assertIn("ROBINHOOD_RPC_URL", env)
+        # Assembled at run time on purpose. A grep for this string must find
+        # nothing anywhere in the repository, and a test that spelled it out
+        # would be the one hit. Joined rather than concatenated because the
+        # compiler folds "A" + "B" into one constant and it reappears in the
+        # .pyc.
+        forbidden = "_".join(("PRIVATE", "KEY"))
+        self.assertNotIn(forbidden, env)
+        for word in ("MNEMONIC", "SEED_PHRASE", "SECRET_KEY"):
+            self.assertNotIn(word, env)
+
+    def test_no_key_field_reaches_any_generated_file(self):
+        forbidden = "_".join(("PRIVATE", "KEY"))
+        for relative in scaffold.plan(self.spec):
+            self.assertNotIn(
+                forbidden, (self.out / relative).read_text(encoding="utf-8"), relative
+            )
+
+    def test_fills_are_marked_as_swaps(self):
+        adapter = (self.out / "src/venue/robinhood.py").read_text(encoding="utf-8")
+        self.assertIn('"model": "swap"', adapter)
+        for key in ('"status"', '"venue"', '"pair"', '"side"', '"notional"', '"paper"'):
+            self.assertIn(key, adapter)  # the existing keys all survive
+
+    def test_the_adapter_still_refuses_live_and_opens_no_socket(self):
+        adapter = (self.out / "src/venue/robinhood.py").read_text(encoding="utf-8")
+        self.assertEqual({"hashlib", "venue"}, imported_roots(adapter))
+        done = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                "import sys; sys.path.insert(0, 'src');"
+                " from venue.robinhood import RobinhoodVenue;"
+                " RobinhoodVenue(live=True)",
+            ],
+            cwd=str(self.out),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        self.assertNotEqual(0, done.returncode)
+        self.assertIn("paper-mode stub", done.stdout.decode("utf-8", "replace"))
+
+    def test_the_readme_says_spot_only(self):
+        readme = (self.out / "README.md").read_text(encoding="utf-8")
+        self.assertIn("spot only", readme)
+        self.assertIn("swaps", readme)
 
 
 class TestDefaultsInTheOutput(unittest.TestCase):
@@ -314,29 +393,35 @@ class TestNoPathLeak(unittest.TestCase):
 
 
 class TestDeterminism(unittest.TestCase):
+    """Every shipped example, not just the first one."""
+
     def test_two_runs_into_the_same_dir_are_identical(self):
-        spec = parse_file(MOMENTUM)
-        with temp_dir() as tmp:
-            out = tmp / "bot"
-            first = scaffold.write(spec, out, no_git=True)
-            snapshot = {rel: (out / rel).read_bytes() for rel in files_on_disk(out)}
-            second = scaffold.write(spec, out, force=True, no_git=True)
-            after = {rel: (out / rel).read_bytes() for rel in files_on_disk(out)}
-            self.assertEqual(snapshot, after)
-            self.assertEqual(first.files, second.files)
-            self.assertEqual(first.bytes, second.bytes)
+        for example in ALL_EXAMPLES:
+            with self.subTest(example=example.name):
+                spec = parse_file(example)
+                with temp_dir() as tmp:
+                    out = tmp / "bot"
+                    first = scaffold.write(spec, out, no_git=True)
+                    snapshot = {rel: (out / rel).read_bytes() for rel in files_on_disk(out)}
+                    second = scaffold.write(spec, out, force=True, no_git=True)
+                    after = {rel: (out / rel).read_bytes() for rel in files_on_disk(out)}
+                    self.assertEqual(snapshot, after)
+                    self.assertEqual(first.files, second.files)
+                    self.assertEqual(first.bytes, second.bytes)
 
     def test_two_runs_into_different_dirs_are_identical(self):
-        spec = parse_file(MOMENTUM)
-        with temp_dir() as tmp:
-            scaffold.write(spec, tmp / "a", no_git=True)
-            scaffold.write(spec, tmp / "b", no_git=True)
-            for relative in files_on_disk(tmp / "a"):
-                self.assertEqual(
-                    (tmp / "a" / relative).read_bytes(),
-                    (tmp / "b" / relative).read_bytes(),
-                    relative,
-                )
+        for example in ALL_EXAMPLES:
+            with self.subTest(example=example.name):
+                spec = parse_file(example)
+                with temp_dir() as tmp:
+                    scaffold.write(spec, tmp / "a", no_git=True)
+                    scaffold.write(spec, tmp / "b", no_git=True)
+                    for relative in files_on_disk(tmp / "a"):
+                        self.assertEqual(
+                            (tmp / "a" / relative).read_bytes(),
+                            (tmp / "b" / relative).read_bytes(),
+                            relative,
+                        )
 
 
 class TestOverwriteRules(unittest.TestCase):

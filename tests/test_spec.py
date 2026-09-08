@@ -68,6 +68,43 @@ class TestParsing(unittest.TestCase):
         self.assertEqual(spec.pairs, ["BTC", "ETH"])
 
 
+class TestSpotOnlyVenues(unittest.TestCase):
+    """robinhood chain is a spot L2: leverage there is meaningless."""
+
+    SPEC = "# Robinhood Degen\n\nvenue: robinhood\npairs: CASHCAT\n{0}\nrules:\n- ape\n"
+
+    def test_robinhood_is_a_valid_venue(self):
+        spec = parse(self.SPEC.format(""), "rh.spec.md")
+        self.assertEqual(spec.venue, "robinhood")
+        self.assertEqual(spec.leverage, 1)
+
+    def test_leverage_one_is_accepted(self):
+        spec = parse(self.SPEC.format("leverage: 1\n"), "rh.spec.md")
+        self.assertEqual(spec.leverage, 1)
+
+    def test_leverage_above_one_is_refused(self):
+        with self.assertRaises(SpecError) as caught:
+            parse(self.SPEC.format("leverage: 3x\n"), "rh.spec.md")
+        message = str(caught.exception)
+        self.assertNotIn("\n", message)
+        self.assertIn("leverage 3", message)
+        self.assertIn("robinhood", message)
+        self.assertIn("spot only", message)
+
+    def test_the_refusal_points_at_the_leverage_line(self):
+        # Line 5 is `leverage: 3x`; line 3 is `venue:`. The user has to delete
+        # the leverage line, so that is the number worth printing.
+        with self.assertRaises(SpecError) as caught:
+            parse(self.SPEC.format("leverage: 3x\n"), "rh.spec.md")
+        self.assertIn("rh.spec.md:5:", str(caught.exception))
+
+    def test_a_perps_venue_still_takes_leverage(self):
+        spec = parse(
+            "# Bot\n\nvenue: hyperliquid\nleverage: 3x\n\nrules:\n- ape\n", "p.spec.md"
+        )
+        self.assertEqual(spec.leverage, 3)
+
+
 class TestDefaults(unittest.TestCase):
     def test_a_minimal_spec_gets_every_default(self):
         spec = parse(MINIMAL)
@@ -121,7 +158,7 @@ class TestRefusals(unittest.TestCase):
             parse("# Bot\n\nvenue: binance\n\nrules:\n- ape\n")
         message = str(caught.exception)
         self.assertIn("binance", message)
-        for venue in ("hyperliquid", "dydx", "paper"):
+        for venue in ("hyperliquid", "dydx", "robinhood", "paper"):
             self.assertIn(venue, message)
 
     def test_no_title(self):

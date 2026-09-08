@@ -7,7 +7,10 @@
 - **No live order execution.** Venue adapters are paper-mode stubs that refuse
   to construct with `live=True`. Writing and reviewing the live path is the
   user's job, deliberately.
-- **No new venues** beyond `hyperliquid`, `dydx` and `paper`.
+- **No new venues** beyond `hyperliquid`, `dydx`, `robinhood` and `paper`.
+- **No signing, no wallets, no RPC calls.** `robinhood` is a chain, and the
+  temptation to reach for `web3` and a key field is exactly the thing this repo
+  refuses. A generated `.env.example` must never name a private key.
 - **Do not interpret rule text.** Rules are copied into `strategy.py` as
   comments, verbatim. Turning English into trading logic is out of scope and
   always will be.

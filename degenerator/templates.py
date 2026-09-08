@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Callable, List, Tuple
 
-from .spec import Spec
+from .spec import SPOT_ONLY, Spec
 
 TAB = "\t"
 
@@ -60,6 +60,33 @@ def _block(lines) -> str:
 
 # --- the generated files -------------------------------------------------
 
+#: Per venue: the comment lines that go above the fields, and the field names
+#: themselves. No entry here may name a private key, a mnemonic, or a seed —
+#: a generated .env.example is the last place that should teach anyone to put
+#: a signing key in a file.
+CREDENTIALS = {
+    "hyperliquid": ((), ("HYPERLIQUID_ACCOUNT_ADDRESS", "HYPERLIQUID_API_SECRET")),
+    "dydx": (
+        (),
+        (
+            "DYDX_ACCOUNT_ADDRESS",
+            "DYDX_API_KEY",
+            "DYDX_API_SECRET",
+            "DYDX_API_PASSPHRASE",
+        ),
+    ),
+    "robinhood": (
+        (
+            "Reading robinhood chain needs an RPC endpoint and nothing else.",
+            "Signing is deliberately not part of this repo: a key does not",
+            "belong in a file like this one, and a generated repo has no",
+            "business teaching you otherwise.",
+        ),
+        ("ROBINHOOD_RPC_URL",),
+    ),
+    "paper": ((), ()),
+}
+
 
 def _readme(spec: Spec) -> str:
     caps = (
@@ -78,6 +105,14 @@ def _readme(spec: Spec) -> str:
         "- venue: `{0}` — paper-mode adapter, no network, no money".format(spec.venue),
         "- pairs: {0}".format(", ".join("`{0}`".format(pair) for pair in spec.pairs)),
         "- timeframe: `{0}`".format(spec.timeframe),
+    ]
+    if spec.venue in SPOT_ONLY:
+        out.append(
+            "- {0} chain is spot only: there is no leverage to ask for, and the "
+            "generated adapter models swaps against a pool rather than order "
+            "book fills.".format(spec.venue)
+        )
+    out += [
         "",
         "## The caps",
         "",
@@ -150,18 +185,10 @@ def _env_example(spec: Spec) -> str:
         "LIVE=false",
         "",
     ]
-    keys = {
-        "hyperliquid": ("HYPERLIQUID_ACCOUNT_ADDRESS", "HYPERLIQUID_API_SECRET"),
-        "dydx": (
-            "DYDX_ACCOUNT_ADDRESS",
-            "DYDX_API_KEY",
-            "DYDX_API_SECRET",
-            "DYDX_API_PASSPHRASE",
-        ),
-        "paper": (),
-    }[spec.venue]
+    note, keys = CREDENTIALS[spec.venue]
     if keys:
         out.append("# {0}".format(spec.venue))
+        out += ["# {0}".format(line) for line in note]
         out += ["{0}=".format(key) for key in keys]
     else:
         out.append("# the paper venue needs no credentials at all.")
@@ -407,13 +434,26 @@ def _venue_base(spec: Spec) -> str:
 
 def _venue_adapter(spec: Spec) -> str:
     cls = _class_name(spec.venue)
-    return _block(
-        [
-            '"""{0} adapter, paper mode.'.format(spec.venue),
+    spot = spec.venue in SPOT_ONLY
+    head = [
+        '"""{0} adapter, paper mode.'.format(spec.venue),
+        "",
+        "Placeholder prices and fake fills, so the loop runs end to end without",
+        "touching an exchange. Nothing here opens a socket. The live order path",
+        "is yours to write and review.",
+    ]
+    if spot:
+        head += [
             "",
-            "Placeholder prices and fake fills, so the loop runs end to end without",
-            "touching an exchange. Nothing here opens a socket. The live order path",
-            "is yours to write and review.",
+            "Robinhood Chain is an Ethereum layer-2 on Arbitrum Orbit, and it is spot",
+            "only: there is no leverage to ask for and no order book to sit in. The",
+            "fills below model a swap against a pool, which is why each one carries",
+            "model=swap. Writing the actual swap — routing, slippage, signing — is",
+            "yours, and none of it lives here.",
+        ]
+    return _block(
+        head
+        + [
             '"""',
             "",
             "import hashlib",
@@ -450,6 +490,9 @@ def _venue_adapter(spec: Spec) -> str:
             '            "price": price,',
             '            "fee": 0.0,',
             '            "paper": True,',
+        ]
+        + (['            "model": "swap",'] if spot else [])
+        + [
             "        }",
             "        self._fills.append(fill)",
             "        return fill",
