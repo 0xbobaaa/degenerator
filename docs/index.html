@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>degenerator — one spec in, one degen bot out</title>
+<meta name="description" content="A standard-library-only CLI that turns a one-page spec into a complete, working paper-mode trading-bot repository.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230d1117'/%3E%3Cpath d='M3 4l4 4-4 4' stroke='%23f0883e' stroke-width='2' fill='none'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #12171f;
+    --line: #22282f;
+    --text: #d3d8de;
+    --muted: #8d959f;
+    --accent: #f0883e;
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+            "Liberation Mono", "Courier New", monospace;
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.65;
+  }
+
+  main {
+    max-width: 46rem;
+    margin: 0 auto;
+    padding: 3.5rem 1.15rem 4rem;
+  }
+
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+  a:hover, a:focus { border-bottom-color: var(--accent); }
+
+  h1, h2 { font-weight: 600; line-height: 1.25; }
+
+  h1 {
+    margin: 0;
+    font-size: clamp(2rem, 9vw, 2.9rem);
+    letter-spacing: -0.02em;
+    color: var(--accent);
+  }
+
+  h2 {
+    margin: 3.25rem 0 0.9rem;
+    font-size: 1.05rem;
+    color: var(--accent);
+    text-transform: lowercase;
+  }
+
+  h2::before { content: "## "; color: var(--muted); }
+
+  .tagline {
+    margin: 0.55rem 0 0;
+    font-size: clamp(1rem, 4.4vw, 1.2rem);
+    color: var(--text);
+  }
+
+  .lede { color: var(--muted); max-width: 40rem; }
+
+  .links { margin: 1.6rem 0 0; display: flex; flex-wrap: wrap; gap: 0.55rem 1.4rem; }
+
+  .links a { border: 1px solid var(--line); padding: 0.4rem 0.9rem; }
+  .links a:hover, .links a:focus { border-color: var(--accent); }
+
+  p { margin: 0.9rem 0; }
+
+  pre {
+    margin: 1.1rem 0;
+    padding: 0.95rem 1.05rem;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-left: 2px solid var(--accent);
+    overflow-x: auto;
+    font-size: 0.82rem;
+    line-height: 1.55;
+    tab-size: 2;
+  }
+
+  code { color: var(--accent); }
+  pre code { color: inherit; }
+
+  .prompt { color: var(--accent); }
+  .dim { color: var(--muted); }
+
+  ul { margin: 0.9rem 0; padding-left: 1.15rem; }
+  li { margin: 0.5rem 0; }
+  li::marker { color: var(--accent); }
+
+  .venue { color: var(--accent); }
+
+  hr { margin: 3.5rem 0 1.5rem; border: 0; border-top: 1px solid var(--line); }
+
+  footer { color: var(--muted); font-size: 0.85rem; }
+  footer p { margin: 0.4rem 0; }
+
+  @media (max-width: 30rem) {
+    main { padding: 2.5rem 0.9rem 3rem; }
+    pre { font-size: 0.76rem; padding: 0.8rem; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>degenerator</h1>
+    <p class="tagline">one spec in, one degen bot out</p>
+    <p class="lede">
+      It reads a one-page spec file and writes a complete, working trading-bot
+      repository: source, tests, Dockerfile, CI, an initialised git repo, and a
+      JSON receipt of everything it wrote.
+    </p>
+    <p class="links">
+      <a href="https://github.com/0xbobaaa/degenerator">GitHub</a>
+      <a href="#spec">see the spec ↓</a>
+    </p>
+  </header>
+
+  <h2>the problem</h2>
+  <p>
+    Starting a trading bot is half a day of scaffolding you have already written
+    before: the same risk module, the same venue interface, the same test
+    harness, the same Dockerfile, the same CI.
+  </p>
+  <p>
+    degenerator does that part in one command and leaves you with the only part
+    that was ever yours — the strategy.
+  </p>
+
+  <h2 id="spec">the spec</h2>
+  <p>
+    A title, <code>key: value</code> lines, and a <code>rules:</code> list. That
+    is the whole language. Rules are copied into the strategy as comments,
+    verbatim: turning English into trading logic is not something a generator
+    should pretend to do.
+  </p>
+<pre># Momentum Degen
+
+venue: hyperliquid
+pairs: BTC, SOL, HYPE
+timeframe: 5m
+max_position: 5%
+stop_loss: 3%
+leverage: 3x
+cash: 1000
+
+rules:
+- long when the 20 period average crosses above the 50
+- close anything down 3%
+- flat before funding</pre>
+
+  <p>One command consumes it:</p>
+<pre><span class="prompt">$</span> degenerator new examples/momentum.spec.md
+Momentum Degen -&gt; momentum-degen/
+  14 files · 13.3kb · 636ms · git: initialised · 1 commit
+  receipt: runs/2026-09-08/receipt-190950.json
+
+next:
+  cd momentum-degen &amp;&amp; cp .env.example .env &amp;&amp; make test</pre>
+
+  <p class="dim">
+    Every number in the generated <code>risk.py</code> traces back to a line in
+    your spec or to a documented default, and the comment above it says which.
+    Run it twice on the same spec and you get the same tree, byte for byte.
+  </p>
+
+  <h2>what you get</h2>
+<pre>momentum-degen/
+├── README.md              the spec, restated for whoever opens the repo
+├── .env.example           keys go here; .env is gitignored
+├── .gitignore
+├── requirements.txt       empty, with a comment saying why
+├── Makefile               make run · make test · make image
+├── Dockerfile             multi-stage, python:3.12-slim
+├── compose.yml            bot + mounted runs/
+├── .github/workflows/ci.yml   unittest + docker build on every push
+├── src/
+│   ├── main.py            one pass: fetch, decide, size, submit
+│   ├── strategy.py        signals in, orders out (spec rules as comments)
+│   ├── risk.py            the only file allowed to say no
+│   └── venue/
+│       ├── base.py        the interface every venue answers
+│       └── &lt;venue&gt;.py     paper-mode adapter, live path left to you
+├── tests/test_risk.py     the caps from the spec, asserted
+└── runs/                  receipts, never edited by hand</pre>
+
+  <p>
+    <code>make test</code> passes in the generated repo immediately, with no
+    edits. Nothing in it imports anything outside the standard library — the
+    tool has no dependencies and neither does what it writes.
+  </p>
+
+  <h2>venues</h2>
+  <ul>
+    <li><span class="venue">hyperliquid</span> — perps. Paper-mode adapter.</li>
+    <li><span class="venue">dydx</span> — perps. Paper-mode adapter.</li>
+    <li>
+      <span class="venue">robinhood</span> — Robinhood Chain, an Ethereum
+      layer-2 on Arbitrum Orbit. <strong>Spot only:</strong> there is no
+      leverage to ask for, so a spec that pairs it with leverage above 1 is
+      refused, pointing at the line to delete. Its adapter marks fills
+      <code>model=swap</code> rather than implying an order book.
+    </li>
+    <li><span class="venue">paper</span> — no venue at all, and the default.</li>
+  </ul>
+
+  <h2>safety</h2>
+  <ul>
+    <li>
+      Generated adapters are paper-mode stubs: placeholder prices, fake fills,
+      no sockets. The loop runs end to end and touches no exchange.
+    </li>
+    <li>
+      An adapter <strong>refuses to construct with <code>live=True</code></strong>.
+      The live order path is deliberately left to you to write and review.
+    </li>
+    <li>
+      No signing, no wallets, no key handling. A generated
+      <code>.env.example</code> never names a private key, because a file that
+      does teaches everyone who reads it the wrong habit.
+    </li>
+    <li>
+      <code>risk.py</code> enforces the caps from your spec and the generated
+      tests assert those exact numbers. The caps are applied, not judged:
+      nothing here decides your leverage is too high for you.
+    </li>
+    <li>
+      The generated bots place no trades. Every fill you will see is invented
+      by the stub.
+    </li>
+  </ul>
+
+  <h2>install</h2>
+<pre><span class="prompt">$</span> git clone https://github.com/0xbobaaa/degenerator
+<span class="prompt">$</span> cd degenerator
+<span class="prompt">$</span> pip install -e .</pre>
+
+  <p>Then look before you write:</p>
+<pre><span class="prompt">$</span> degenerator plan examples/momentum.spec.md   <span class="dim"># prints the tree, writes nothing</span>
+<span class="prompt">$</span> degenerator new examples/momentum.spec.md    <span class="dim"># writes it</span></pre>
+
+  <hr>
+
+  <footer>
+    <p>MIT · <a href="https://github.com/0xbobaaa/degenerator">github.com/0xbobaaa/degenerator</a></p>
+    <p>Nothing here is financial advice.</p>
+  </footer>
+
+</main>
+</body>
+</html>
