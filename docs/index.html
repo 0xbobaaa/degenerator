@@ -4,146 +4,313 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>degenerator — one spec in, one degen bot out</title>
-<meta name="description" content="A standard-library-only CLI that turns a one-page spec into a complete, working paper-mode trading-bot repository.">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%230d1117'/%3E%3Cpath d='M3 4l4 4-4 4' stroke='%23f0883e' stroke-width='2' fill='none'/%3E%3C/svg%3E">
+<meta name="description" content="A standard-library-only CLI that turns a one-page spec into a complete, working paper-mode trading-bot repository: source, tests, Dockerfile, CI and a receipt.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23ffffff'/%3E%3Cpath d='M3 4l4 4-4 4' stroke='%232B2BE8' stroke-width='2' fill='none'/%3E%3C/svg%3E">
+
+<!--
+  Token constants live in exactly these places and nowhere else:
+    ticker   — the <h2> of the token section, and the "ticker" row of its facts grid
+    contract — the single <code id="ca-value"> below; to ship a real address,
+               replace TBA there and delete the `disabled` on its copy button
+  Everything else on this page is static text. There is no build step.
+-->
+
 <style>
   :root {
-    --bg: #0d1117;
-    --panel: #12171f;
-    --line: #22282f;
-    --text: #d3d8de;
-    --muted: #8d959f;
-    --accent: #f0883e;
-    --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
-            "Liberation Mono", "Courier New", monospace;
+    --paper:  #FFFFFF;
+    --panel:  #F1F2F4;
+    --rule:   #D8DBDF;
+    --ink:    #101215;
+    --muted:  #6B7078;
+    --signal: #2B2BE8;
+    --refuse: #C8102E;
+
+    --prose: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+
+    --t-xs:   0.8125rem;
+    --t-sm:   0.9375rem;
+    --t-base: 1.0625rem;
+    --t-md:   1.1875rem;
+    --t-lg:   1.5rem;
+    --t-xl:   2rem;
+    --t-hero: clamp(2.25rem, 7.5vw, 3.25rem);
+
+    --gap: 1.5rem;
+    --edge: 1.25rem;
   }
 
   * { box-sizing: border-box; }
-
-  html { -webkit-text-size-adjust: 100%; }
+  html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 
   body {
     margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: var(--mono);
-    font-size: 15px;
-    line-height: 1.65;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--prose);
+    font-size: var(--t-base);
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
   }
 
-  main {
-    max-width: 46rem;
-    margin: 0 auto;
-    padding: 3.5rem 1.15rem 4rem;
+  .wrap { max-width: 64rem; margin: 0 auto; padding: 0 var(--edge); }
+  .prose { max-width: 34rem; }
+
+  a { color: var(--signal); text-decoration: none; }
+  a:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+  :focus-visible {
+    outline: 2px solid var(--signal);
+    outline-offset: 2px;
+    border-radius: 2px;
   }
 
-  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
-  a:hover, a:focus { border-bottom-color: var(--accent); }
+  .skip {
+    position: absolute; left: -9999px; top: 0;
+    background: var(--paper); color: var(--signal);
+    padding: 0.6rem 1rem; border: 1px solid var(--signal); z-index: 20;
+  }
+  .skip:focus { left: 0.5rem; top: 0.5rem; }
 
-  h1, h2 { font-weight: 600; line-height: 1.25; }
+  /* --- nav ------------------------------------------------------------ */
+
+  .nav {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--paper);
+    border-bottom: 1px solid var(--rule);
+  }
+  .nav .wrap {
+    display: flex; flex-wrap: wrap; align-items: baseline;
+    gap: 0.35rem 1.1rem;
+    padding-top: 0.7rem; padding-bottom: 0.7rem;
+  }
+  .nav-mark {
+    font-family: var(--mono); font-size: var(--t-sm); font-weight: 600;
+    color: var(--signal); margin-right: auto;
+  }
+  .nav-links { display: flex; flex-wrap: wrap; gap: 0.35rem 1.1rem; }
+  .nav-links a { font-size: var(--t-xs); color: var(--muted); }
+  .nav-links a:hover, .nav-links a:focus-visible { color: var(--signal); }
+
+  /* --- hero ----------------------------------------------------------- */
+
+  header.hero { padding: 3.5rem 0 0; }
 
   h1 {
+    font-family: var(--mono);
+    font-size: var(--t-hero);
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
     margin: 0;
-    font-size: clamp(2rem, 9vw, 2.9rem);
-    letter-spacing: -0.02em;
-    color: var(--accent);
+    color: var(--signal);
   }
-
-  h2 {
-    margin: 3.25rem 0 0.9rem;
-    font-size: 1.05rem;
-    color: var(--accent);
-    text-transform: lowercase;
-  }
-
-  h2::before { content: "## "; color: var(--muted); }
 
   .tagline {
-    margin: 0.55rem 0 0;
-    font-size: clamp(1rem, 4.4vw, 1.2rem);
-    color: var(--text);
+    font-family: var(--mono);
+    font-size: var(--t-md);
+    color: var(--ink);
+    margin: 0.6rem 0 0;
   }
 
-  .lede { color: var(--muted); max-width: 40rem; }
+  .panels {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    margin: 2rem 0 0.5rem;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+  }
 
-  .links { margin: 1.6rem 0 0; display: flex; flex-wrap: wrap; gap: 0.55rem 1.4rem; }
+  .panel { background: var(--paper); min-width: 0; display: flex; flex-direction: column; }
 
-  .links a { border: 1px solid var(--line); padding: 0.4rem 0.9rem; }
-  .links a:hover, .links a:focus { border-color: var(--accent); }
-
-  p { margin: 0.9rem 0; }
-
-  pre {
-    margin: 1.1rem 0;
-    padding: 0.95rem 1.05rem;
+  /* --muted on --panel is 4.45:1, just under AA. Labels that sit on a panel
+     take --ink instead; the palette itself is untouched. */
+  .panel-head {
+    font-family: var(--mono); font-size: var(--t-xs); color: var(--ink);
+    padding: 0.55rem 0.85rem;
+    border-bottom: 1px solid var(--rule);
     background: var(--panel);
-    border: 1px solid var(--line);
-    border-left: 2px solid var(--accent);
-    overflow-x: auto;
-    font-size: 0.82rem;
-    line-height: 1.55;
-    tab-size: 2;
+    display: flex; justify-content: space-between; gap: 0.5rem;
   }
 
-  code { color: var(--accent); }
-  pre code { color: inherit; }
+  .panel pre, .panel textarea {
+    margin: 0; padding: 0.85rem;
+    font-family: var(--mono); font-size: var(--t-xs); line-height: 1.55;
+    background: var(--paper); color: var(--ink);
+    border: 0; overflow-x: auto; flex: 1;
+    white-space: pre; tab-size: 2;
+  }
 
-  .prompt { color: var(--accent); }
-  .dim { color: var(--muted); }
+  .panel textarea {
+    resize: vertical; min-height: 17.5rem; width: 100%;
+    outline-offset: -2px; white-space: pre; overflow: auto;
+  }
 
-  ul { margin: 0.9rem 0; padding-left: 1.15rem; }
-  li { margin: 0.5rem 0; }
-  li::marker { color: var(--accent); }
+  .panel-note {
+    grid-column: 1 / -1;
+    background: var(--paper);
+    font-size: var(--t-xs); color: var(--muted);
+    padding: 0.55rem 0.85rem;
+    border-top: 1px solid var(--rule);
+  }
 
-  .venue { color: var(--accent); }
+  .caption {
+    display: flex; justify-content: space-between; gap: 1rem;
+    font-family: var(--mono); font-size: var(--t-xs); color: var(--muted);
+    margin-bottom: 2rem;
+  }
 
-  hr { margin: 3.5rem 0 1.5rem; border: 0; border-top: 1px solid var(--line); }
+  .refusal { color: var(--refuse); }
 
-  footer { color: var(--muted); font-size: 0.85rem; }
-  footer p { margin: 0.4rem 0; }
+  .badges { display: flex; flex-wrap: wrap; gap: 0.5rem; margin: 1.5rem 0 0; padding: 0; list-style: none; }
+  .badges li {
+    font-family: var(--mono); font-size: var(--t-xs); color: var(--muted);
+    border: 1px solid var(--rule); padding: 0.2rem 0.6rem;
+  }
 
-  @media (max-width: 30rem) {
-    main { padding: 2.5rem 0.9rem 3rem; }
-    pre { font-size: 0.76rem; padding: 0.8rem; }
+  .cta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.75rem 1.25rem; margin: 1.25rem 0 0; }
+  .cta code {
+    font-family: var(--mono); font-size: var(--t-sm);
+    background: var(--panel); border: 1px solid var(--rule); padding: 0.4rem 0.7rem;
+  }
+
+  /* --- sections ------------------------------------------------------- */
+
+  section { padding: 3.5rem 0 0; }
+  section:last-of-type { padding-bottom: 3.5rem; }
+
+  h2 {
+    font-size: var(--t-lg); font-weight: 600; letter-spacing: -0.015em;
+    margin: 0 0 0.85rem;
+  }
+  h3 { font-size: var(--t-md); font-weight: 600; margin: 0 0 0.4rem; }
+  p { margin: 0 0 1rem; }
+  .lede { color: var(--muted); }
+
+  .three { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--gap); margin-top: 1.5rem; }
+  .three > div { border-top: 2px solid var(--ink); padding-top: 0.9rem; }
+  .three p { font-size: var(--t-sm); color: var(--muted); margin: 0; }
+
+  pre.block {
+    font-family: var(--mono); font-size: var(--t-xs); line-height: 1.55;
+    background: var(--panel); border: 1px solid var(--rule);
+    padding: 0.9rem 1rem; overflow-x: auto; margin: 0 0 1rem;
+  }
+
+  .codewrap { position: relative; }
+  .codewrap .copy { position: absolute; top: 0.45rem; right: 0.45rem; }
+
+  button.copy {
+    font-family: var(--mono); font-size: var(--t-xs);
+    color: var(--muted); background: var(--paper);
+    border: 1px solid var(--rule); padding: 0.2rem 0.55rem;
+    cursor: pointer;
+  }
+  button.copy:hover:not([disabled]) { color: var(--signal); border-color: var(--signal); }
+  button.copy[disabled] { cursor: not-allowed; opacity: 0.6; }
+
+  .tablewrap { overflow-x: auto; margin: 0 0 1rem; border: 1px solid var(--rule); }
+  table { border-collapse: collapse; width: 100%; font-size: var(--t-sm); }
+  th, td { text-align: left; padding: 0.5rem 0.85rem; border-bottom: 1px solid var(--rule); vertical-align: top; }
+  th { font-size: var(--t-xs); color: var(--ink); font-weight: 600; background: var(--panel); white-space: nowrap; }
+  tr:last-child td { border-bottom: 0; }
+  td code, th code, li code, p code { font-family: var(--mono); font-size: 0.9em; }
+  td:first-child { font-family: var(--mono); white-space: nowrap; }
+
+  .refusals { list-style: none; padding: 0; margin: 1.25rem 0 0; }
+  .refusals li { margin: 0 0 0.9rem; }
+  .refusals .what { font-size: var(--t-sm); color: var(--muted); margin-bottom: 0.25rem; }
+  .refusals code {
+    display: block; font-family: var(--mono); font-size: var(--t-xs);
+    color: var(--refuse); background: var(--panel);
+    border: 1px solid var(--rule); border-left: 2px solid var(--refuse);
+    padding: 0.5rem 0.7rem; overflow-x: auto; white-space: pre;
+  }
+
+  .venues { list-style: none; padding: 0; margin: 1.25rem 0 0; }
+  .venues li { border-top: 1px solid var(--rule); padding: 0.85rem 0; font-size: var(--t-sm); }
+  .venues b { font-family: var(--mono); font-weight: 600; }
+
+  .safety { padding-left: 1.1rem; }
+  .safety li { margin: 0 0 0.7rem; }
+
+  /* --- token ---------------------------------------------------------- */
+
+  .token-mark {
+    font-family: var(--mono); font-size: var(--t-xl); font-weight: 600;
+    letter-spacing: -0.03em; color: var(--signal); margin: 0 0 0.85rem;
+  }
+
+  .ca {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem;
+    border: 1px solid var(--rule); background: var(--panel);
+    padding: 0.6rem 0.75rem; margin: 1.25rem 0 1rem;
+  }
+  .ca .label { font-family: var(--mono); font-size: var(--t-xs); color: var(--ink); }
+  .ca code { font-family: var(--mono); font-size: var(--t-sm); word-break: break-all; flex: 1; min-width: 8rem; }
+
+  .facts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--rule); border: 1px solid var(--rule); margin: 0 0 1.25rem; }
+  .facts div { background: var(--paper); padding: 0.7rem 0.85rem; }
+  .facts dt { font-size: var(--t-xs); color: var(--muted); margin: 0 0 0.15rem; }
+  .facts dd { margin: 0; font-family: var(--mono); font-size: var(--t-sm); }
+
+  .tokenlinks { display: flex; flex-wrap: wrap; gap: 0.5rem 1.1rem; margin: 0 0 1rem; padding: 0; list-style: none; font-size: var(--t-sm); }
+  .tokenlinks .none { color: var(--muted); }
+  .fine { font-size: var(--t-xs); color: var(--muted); max-width: 40rem; }
+
+  /* --- footer --------------------------------------------------------- */
+
+  footer { border-top: 1px solid var(--rule); padding: 1.75rem 0 3rem; }
+  .footlinks { display: flex; flex-wrap: wrap; gap: 0.4rem 1.1rem; margin: 0 0 0.6rem; padding: 0; list-style: none; font-size: var(--t-sm); }
+  footer p { font-size: var(--t-xs); color: var(--muted); margin: 0; }
+
+  /* --- responsive ----------------------------------------------------- */
+
+  @media (max-width: 46rem) {
+    .panels { grid-template-columns: 1fr; }
+    .three { grid-template-columns: 1fr; gap: 1.25rem; }
+    .facts { grid-template-columns: repeat(2, 1fr); }
+    .caption { flex-direction: column; gap: 0.15rem; margin-bottom: 1.5rem; }
+    header.hero { padding-top: 2.5rem; }
+    section { padding-top: 2.75rem; }
+    :root { --edge: 1rem; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    * { transition: none !important; animation: none !important; }
   }
 </style>
 </head>
 <body>
-<main>
 
-  <header>
+<a class="skip" href="#main">Skip to content</a>
+
+<nav class="nav" aria-label="Sections">
+  <div class="wrap">
+    <span class="nav-mark">degenerator</span>
+    <span class="nav-links">
+      <a href="#spec">the spec</a>
+      <a href="#cli">the cli</a>
+      <a href="#receipts">receipts</a>
+      <a href="#token">the token</a>
+      <a href="https://github.com/0xbobaaa/degenerator">github</a>
+    </span>
+  </div>
+</nav>
+
+<main id="main">
+
+<header class="hero">
+  <div class="wrap">
     <h1>degenerator</h1>
     <p class="tagline">one spec in, one degen bot out</p>
-    <p class="lede">
-      It reads a one-page spec file and writes a complete, working trading-bot
-      repository: source, tests, Dockerfile, CI, an initialised git repo, and a
-      JSON receipt of everything it wrote.
-    </p>
-    <p class="links">
-      <a href="https://github.com/0xbobaaa/degenerator">GitHub</a>
-      <a href="#spec">see the spec ↓</a>
-    </p>
-  </header>
 
-  <h2>the problem</h2>
-  <p>
-    Starting a trading bot is half a day of scaffolding you have already written
-    before: the same risk module, the same venue interface, the same test
-    harness, the same Dockerfile, the same CI.
-  </p>
-  <p>
-    degenerator does that part in one command and leaves you with the only part
-    that was ever yours — the strategy.
-  </p>
-
-  <h2 id="spec">the spec</h2>
-  <p>
-    A title, <code>key: value</code> lines, and a <code>rules:</code> list. That
-    is the whole language. Rules are copied into the strategy as comments,
-    verbatim: turning English into trading logic is not something a generator
-    should pretend to do.
-  </p>
-<pre># Momentum Degen
+    <div class="panels" id="panels">
+      <div class="panel">
+        <div class="panel-head"><span>momentum.spec.md</span><span id="spec-hint"></span></div>
+        <pre id="spec-source"># Momentum Degen
 
 venue: hyperliquid
 pairs: BTC, SOL, HYPE
@@ -157,104 +324,497 @@ rules:
 - long when the 20 period average crosses above the 50
 - close anything down 3%
 - flat before funding</pre>
+      </div>
 
-  <p>One command consumes it:</p>
-<pre><span class="prompt">$</span> degenerator new examples/momentum.spec.md
-Momentum Degen -&gt; momentum-degen/
-  14 files · 13.3kb · 636ms · git: initialised · 1 commit
-  receipt: runs/2026-09-08/receipt-190950.json
-
-next:
-  cd momentum-degen &amp;&amp; cp .env.example .env &amp;&amp; make test</pre>
-
-  <p class="dim">
-    Every number in the generated <code>risk.py</code> traces back to a line in
-    your spec or to a documented default, and the comment above it says which.
-    Run it twice on the same spec and you get the same tree, byte for byte.
-  </p>
-
-  <h2>what you get</h2>
-<pre>momentum-degen/
-├── README.md              the spec, restated for whoever opens the repo
-├── .env.example           keys go here; .env is gitignored
+      <div class="panel">
+        <div class="panel-head"><span id="tree-head">momentum-degen/</span></div>
+        <pre id="tree">├── README.md
+├── .env.example
 ├── .gitignore
-├── requirements.txt       empty, with a comment saying why
-├── Makefile               make run · make test · make image
-├── Dockerfile             multi-stage, python:3.12-slim
-├── compose.yml            bot + mounted runs/
-├── .github/workflows/ci.yml   unittest + docker build on every push
+├── requirements.txt
+├── Makefile
+├── Dockerfile
+├── compose.yml
+├── .github/workflows/ci.yml
 ├── src/
-│   ├── main.py            one pass: fetch, decide, size, submit
-│   ├── strategy.py        signals in, orders out (spec rules as comments)
-│   ├── risk.py            the only file allowed to say no
+│   ├── main.py
+│   ├── strategy.py
+│   ├── risk.py
 │   └── venue/
-│       ├── base.py        the interface every venue answers
-│       └── &lt;venue&gt;.py     paper-mode adapter, live path left to you
-├── tests/test_risk.py     the caps from the spec, asserted
-└── runs/                  receipts, never edited by hand</pre>
+│       ├── base.py
+│       └── hyperliquid.py
+├── tests/test_risk.py
+└── runs/</pre>
+      </div>
+    </div>
 
-  <p>
-    <code>make test</code> passes in the generated repo immediately, with no
-    edits. Nothing in it imports anything outside the standard library — the
-    tool has no dependencies and neither does what it writes.
-  </p>
+    <p class="caption"><span>one spec in</span><span>one degen bot out</span></p>
 
-  <h2>venues</h2>
-  <ul>
-    <li><span class="venue">hyperliquid</span> — perps. Paper-mode adapter.</li>
-    <li><span class="venue">dydx</span> — perps. Paper-mode adapter.</li>
-    <li>
-      <span class="venue">robinhood</span> — Robinhood Chain, an Ethereum
-      layer-2 on Arbitrum Orbit. <strong>Spot only:</strong> there is no
-      leverage to ask for, so a spec that pairs it with leverage above 1 is
-      refused, pointing at the line to delete. Its adapter marks fills
-      <code>model=swap</code> rather than implying an order book.
-    </li>
-    <li><span class="venue">paper</span> — no venue at all, and the default.</li>
-  </ul>
+    <p class="prose">
+      degenerator reads a one-page spec file and writes a complete, working
+      trading-bot repository: source, tests, a Dockerfile, GitHub Actions CI, an
+      initialised git repo with the first commit made, and a JSON receipt of
+      everything it wrote.
+    </p>
 
-  <h2>safety</h2>
-  <ul>
-    <li>
-      Generated adapters are paper-mode stubs: placeholder prices, fake fills,
-      no sockets. The loop runs end to end and touches no exchange.
-    </li>
-    <li>
-      An adapter <strong>refuses to construct with <code>live=True</code></strong>.
-      The live order path is deliberately left to you to write and review.
-    </li>
-    <li>
-      No signing, no wallets, no key handling. A generated
-      <code>.env.example</code> never names a private key, because a file that
-      does teaches everyone who reads it the wrong habit.
-    </li>
-    <li>
-      <code>risk.py</code> enforces the caps from your spec and the generated
-      tests assert those exact numbers. The caps are applied, not judged:
-      nothing here decides your leverage is too high for you.
-    </li>
-    <li>
-      The generated bots place no trades. Every fill you will see is invented
-      by the stub.
-    </li>
-  </ul>
+    <p class="cta">
+      <code>pip install -e .</code>
+      <a href="https://github.com/0xbobaaa/degenerator">github.com/0xbobaaa/degenerator</a>
+    </p>
 
-  <h2>install</h2>
-<pre><span class="prompt">$</span> git clone https://github.com/0xbobaaa/degenerator
-<span class="prompt">$</span> cd degenerator
-<span class="prompt">$</span> pip install -e .</pre>
+    <ul class="badges">
+      <li>python 3.9+</li>
+      <li>no dependencies</li>
+      <li>MIT</li>
+    </ul>
+  </div>
+</header>
 
-  <p>Then look before you write:</p>
-<pre><span class="prompt">$</span> degenerator plan examples/momentum.spec.md   <span class="dim"># prints the tree, writes nothing</span>
-<span class="prompt">$</span> degenerator new examples/momentum.spec.md    <span class="dim"># writes it</span></pre>
+<section aria-labelledby="saves">
+  <div class="wrap prose">
+    <h2 id="saves">What it saves you</h2>
+    <p>
+      Starting a trading bot is half a day of scaffolding you have already
+      written before: the same risk module, the same venue interface, the same
+      test harness, the same Dockerfile, the same CI.
+    </p>
+    <p>
+      degenerator does that part in one command and leaves you the strategy,
+      which was the only part that was ever yours.
+    </p>
+  </div>
+</section>
 
-  <hr>
+<section aria-labelledby="promises">
+  <div class="wrap">
+    <h2 id="promises">Three promises the generator keeps</h2>
+    <div class="three">
+      <div>
+        <h3>A rerun is safe</h3>
+        <p>
+          The spec is the source of truth and the repo is an artifact of it.
+          Every number in <code>risk.py</code> came from a line you wrote, and
+          the comment above it names that line.
+        </p>
+      </div>
+      <div>
+        <h3>CI exists on commit one</h3>
+        <p>
+          Tests and a docker build run on the first push, not in week three
+          after something broke quietly. The generated repo arrives with a
+          workflow already in it.
+        </p>
+      </div>
+      <div>
+        <h3>Nothing goes live on its own</h3>
+        <p>
+          Adapters refuse to construct with <code>live=True</code>. The order
+          path is left unwritten so that a human writes it and a human reviews
+          it before money is involved.
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
 
-  <footer>
-    <p>MIT · <a href="https://github.com/0xbobaaa/degenerator">github.com/0xbobaaa/degenerator</a></p>
-    <p>Nothing here is financial advice.</p>
-  </footer>
+<section id="spec" aria-labelledby="spec-h">
+  <div class="wrap">
+    <h2 id="spec-h">The spec language</h2>
+    <p class="prose lede">
+      A title, <code>key: value</code> lines, and a <code>rules:</code> list.
+      Unknown keys are kept and copied into the generated README, so nothing you
+      wrote is dropped. Rules are copied into the strategy as comments,
+      verbatim — turning English into trading logic is not something a generator
+      should pretend to do.
+    </p>
+
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th scope="col">key</th><th scope="col">default</th><th scope="col">notes</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>venue</td><td>paper</td><td>one of <code>hyperliquid</code>, <code>dydx</code>, <code>robinhood</code>, <code>paper</code></td></tr>
+          <tr><td>pairs</td><td>BTC</td><td>comma separated</td></tr>
+          <tr><td>timeframe</td><td>5m</td><td>free text, copied into the strategy as a comment</td></tr>
+          <tr><td>max_position</td><td>0.05</td><td>share of equity per position, <code>%</code> accepted</td></tr>
+          <tr><td>stop_loss</td><td>0.03</td><td>per position, <code>%</code> accepted</td></tr>
+          <tr><td>leverage</td><td>1</td><td><code>3x</code> and <code>3</code> both parse to <code>3</code>; above <code>1</code> is refused on <code>robinhood</code></td></tr>
+          <tr><td>cash</td><td>1000</td><td>starting paper equity</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Three ways a spec fails on purpose</h3>
+    <p class="prose lede">
+      Each of these is the real message, printed on one line, with a non-zero
+      exit code.
+    </p>
+    <ul class="refusals">
+      <li>
+        <p class="what">A venue that does not exist.</p>
+        <code>degenerator: v.spec.md: unknown venue 'binance': choose one of hyperliquid, dydx, robinhood, paper</code>
+      </li>
+      <li>
+        <p class="what">A title with nothing in it, so there is no name to give the repo.</p>
+        <code>degenerator: t.spec.md:1: the title line is empty: write '# My Bot'</code>
+      </li>
+      <li>
+        <p class="what">No rules at all.</p>
+        <code>degenerator: r.spec.md: no rules: a bot with no rules is a random number generator</code>
+      </li>
+    </ul>
+  </div>
+</section>
+
+<section aria-labelledby="venues-h">
+  <div class="wrap">
+    <h2 id="venues-h">Venues</h2>
+    <ul class="venues">
+      <li><b>hyperliquid</b> — perps. Paper-mode adapter.</li>
+      <li><b>dydx</b> — perps. Paper-mode adapter.</li>
+      <li>
+        <b>robinhood</b> — Robinhood Chain, an Ethereum layer-2 on Arbitrum
+        Orbit. <strong>Spot only:</strong> there is no leverage to ask for, so a
+        spec that pairs it with leverage above 1 is refused, pointing at the
+        line to delete. Its adapter marks fills <code>model=swap</code> rather
+        than implying an order book, and its <code>.env.example</code> asks for
+        an RPC URL and nothing else.
+      </li>
+      <li><b>paper</b> — no venue at all, and the default.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="cli" aria-labelledby="cli-h">
+  <div class="wrap">
+    <h2 id="cli-h">The CLI</h2>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr><th scope="col">command or flag</th><th scope="col">what it does</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>plan &lt;spec&gt;</td><td>print the file tree, write nothing</td></tr>
+          <tr><td>new &lt;spec&gt;</td><td>write it</td></tr>
+          <tr><td>-o, --out</td><td>output directory, default the slugified project name</td></tr>
+          <tr><td>--force</td><td>overwrite a non-empty directory</td></tr>
+          <tr><td>--no-git</td><td>skip <code>git init</code> and the first commit</td></tr>
+          <tr><td>--dry-run</td><td>report what would happen, touch nothing</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="prose lede">The tool that does it is five files:</p>
+    <div class="codewrap">
+<pre class="block">degenerator/
+├── cli.py         argparse front door
+├── spec.py        the spec language and its errors
+├── scaffold.py    writes the tree, runs git init
+├── templates.py   every generated file, as one flat table
+└── receipts.py    runs/ receipts and the trace log
+tests/
+├── test_spec.py   parsing, defaults, % and x suffixes, refusals
+└── test_scaffold.py  scaffolds into a temp dir, runs the child repo's tests</pre>
+    </div>
+  </div>
+</section>
+
+<section id="receipts" aria-labelledby="receipts-h">
+  <div class="wrap">
+    <h2 id="receipts-h">Receipts</h2>
+    <p class="prose lede">
+      Every <code>new</code> run writes a JSON receipt next to where you ran it
+      and appends a line to <code>runs/trace.log</code>. If you cannot say which
+      run wrote a file and why, it is not a generator, it is a folder.
+    </p>
+    <div class="codewrap">
+<pre class="block">{
+  "at": "2026-09-08T19:25:57+00:00",
+  "spec": "examples/momentum.spec.md",
+  "project": "Momentum Degen",
+  "venue": "hyperliquid",
+  "risk": {
+    "max_position": 0.05,
+    "stop_loss": 0.03,
+    "leverage": 3
+  },
+  "files": [
+    "README.md",
+    ".env.example",
+    "...",
+    "tests/test_risk.py"
+  ],
+  "bytes": 13255,
+  "ms": 1044,
+  "git": "initialised · 1 commit"
+}</pre>
+    </div>
+    <p class="prose lede">
+      The receipt stays where you invoked the tool rather than inside the
+      generated repo, so running <code>new --force</code> twice leaves that repo
+      byte-identical.
+    </p>
+  </div>
+</section>
+
+<section id="token" aria-labelledby="token-h">
+  <div class="wrap">
+    <h2 class="token-mark" id="token-h">$DGEN</h2>
+    <p class="prose">
+      degenerator writes bots for Robinhood Chain, so the ticker lives on that
+      chain rather than somewhere else with better fees.
+    </p>
+    <p class="prose">
+      The tool is MIT and stays MIT — the token is not a licence, a key or a
+      gate. It is where the people building around this project stand.
+    </p>
+
+    <div class="ca">
+      <span class="label">CA</span>
+      <code id="ca-value">TBA</code>
+      <button class="copy" type="button" data-copy-target="ca-value" disabled>copy</button>
+    </div>
+
+    <dl class="facts">
+      <div><dt>ticker</dt><dd>$DGEN</dd></div>
+      <div><dt>chain</dt><dd>Robinhood Chain</dd></div>
+      <div><dt>chain id</dt><dd>4663</dd></div>
+      <div><dt>license</dt><dd>MIT</dd></div>
+    </dl>
+
+    <ul class="tokenlinks">
+      <li><a href="https://x.com/0xbobaaa">X</a></li>
+      <li><a href="https://github.com/0xbobaaa/degenerator">GitHub</a></li>
+      <li class="none">Telegram — none yet</li>
+      <li class="none">Chart — none yet</li>
+      <li class="none">Explorer — when there is a contract</li>
+    </ul>
+
+    <p class="fine">
+      The generated venue adapters are paper-mode stubs. There is no live order
+      path in this repository, and nothing on this page is financial advice.
+    </p>
+  </div>
+</section>
+
+<section aria-labelledby="safety-h">
+  <div class="wrap prose">
+    <h2 id="safety-h">Safety</h2>
+    <ul class="safety">
+      <li>
+        Generated adapters are paper-mode stubs: placeholder prices, fake fills,
+        no sockets. The loop runs end to end and touches no exchange.
+      </li>
+      <li>
+        An adapter <strong>refuses to construct with <code>live=True</code></strong>.
+        The live order path is deliberately left to you to write and review.
+      </li>
+      <li>
+        No signing, no wallets, no key handling. A generated
+        <code>.env.example</code> never names a private key, because a file that
+        does teaches everyone who reads it the wrong habit.
+      </li>
+      <li>
+        <code>risk.py</code> enforces the caps from your spec and the generated
+        tests assert those exact numbers. The caps are applied, not judged:
+        nothing here decides your leverage is too high for you.
+      </li>
+      <li>
+        The generated bots place no trades. Every fill you will ever see from
+        one is invented by the stub.
+      </li>
+    </ul>
+  </div>
+</section>
 
 </main>
+
+<footer>
+  <div class="wrap">
+    <ul class="footlinks">
+      <li><a href="https://github.com/0xbobaaa/degenerator">Source</a></li>
+      <li><a href="https://github.com/0xbobaaa/degenerator/issues">Issues</a></li>
+      <li><a href="https://x.com/0xbobaaa">@0xbobaaa</a></li>
+      <li>MIT</li>
+    </ul>
+    <p>Nothing here is financial advice.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ---- copy buttons -------------------------------------------------
+     Built here rather than in the HTML: with JS off there is nothing to
+     press, which is better than a button that does nothing.            */
+
+  function flash(button, word) {
+    var was = button.textContent;
+    button.textContent = word;
+    setTimeout(function () { button.textContent = was; }, 1000);
+  }
+
+  function copy(text, button) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(
+        function () { flash(button, "copied"); },
+        function () { flash(button, "press ctrl+c"); }
+      );
+    } else {
+      flash(button, "press ctrl+c");
+    }
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll(".codewrap"), function (wrap) {
+    var pre = wrap.querySelector("pre");
+    if (!pre) return;
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "copy";
+    button.textContent = "copy";
+    button.setAttribute("aria-label", "Copy this block");
+    button.addEventListener("click", function () { copy(pre.textContent, button); });
+    wrap.appendChild(button);
+  });
+
+  var caButton = document.querySelector("[data-copy-target]");
+  if (caButton) {
+    caButton.addEventListener("click", function () {
+      var target = document.getElementById(caButton.getAttribute("data-copy-target"));
+      if (target && !caButton.disabled) copy(target.textContent.trim(), caButton);
+    });
+  }
+
+  /* ---- the hero spec, editable --------------------------------------
+     A preview of the parser, not the parser: it knows the title, the
+     venue and whether there are rules, which is what changes the tree.  */
+
+  var VENUES = ["hyperliquid", "dydx", "robinhood", "paper"];
+
+  function slugify(title) {
+    return title.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "degen-bot";
+  }
+
+  function parseSpec(text) {
+    var lines = text.split(/\r?\n/);
+    var title = null, venue = "paper", rules = 0, inRules = false;
+    var leverage = null, leverageLine = 0;
+
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i].trim();
+      if (!line) continue;
+      if (line.charAt(0) === "#") {
+        if (title === null) {
+          title = line.replace(/^#+/, "").trim();
+          if (!title) {
+            return { error: "spec.md:" + (i + 1) + ": the title line is empty: write '# My Bot'" };
+          }
+        }
+        continue;
+      }
+      if (line.charAt(0) === "-") {
+        if (inRules && line.slice(1).trim()) rules++;
+        continue;
+      }
+      var at = line.indexOf(":");
+      if (at < 0) continue;
+      var key = line.slice(0, at).trim().toLowerCase();
+      var value = line.slice(at + 1).trim();
+      if (key === "rules") {
+        inRules = true;
+        if (value) rules++;
+        continue;
+      }
+      inRules = false;
+      if (key === "venue") venue = value.toLowerCase();
+      if (key === "leverage") {
+        leverage = parseFloat(value.replace(/[xX]$/, ""));
+        leverageLine = i + 1;
+      }
+    }
+
+    if (title === null) return { error: "spec.md: no title line: start the spec with '# My Bot'" };
+    if (VENUES.indexOf(venue) < 0) {
+      return { error: "spec.md: unknown venue '" + venue + "': choose one of " + VENUES.join(", ") };
+    }
+    if (!rules) {
+      return { error: "spec.md: no rules: a bot with no rules is a random number generator" };
+    }
+    if (venue === "robinhood" && leverage !== null && leverage !== 1) {
+      return {
+        error: "spec.md:" + leverageLine + ": leverage " + leverage +
+               " with venue 'robinhood': robinhood chain is spot only, drop the leverage line"
+      };
+    }
+    return { slug: slugify(title), venue: venue };
+  }
+
+  function tree(venue) {
+    return [
+      "├── README.md",
+      "├── .env.example",
+      "├── .gitignore",
+      "├── requirements.txt",
+      "├── Makefile",
+      "├── Dockerfile",
+      "├── compose.yml",
+      "├── .github/workflows/ci.yml",
+      "├── src/",
+      "│   ├── main.py",
+      "│   ├── strategy.py",
+      "│   ├── risk.py",
+      "│   └── venue/",
+      "│       ├── base.py",
+      "│       └── " + venue + ".py",
+      "├── tests/test_risk.py",
+      "└── runs/"
+    ].join("\n");
+  }
+
+  var source = document.getElementById("spec-source");
+  var treePre = document.getElementById("tree");
+  var treeHead = document.getElementById("tree-head");
+  var panels = document.getElementById("panels");
+  if (!source || !treePre || !treeHead || !panels) return;
+
+  var editor = document.createElement("textarea");
+  editor.value = source.textContent;
+  editor.setAttribute("spellcheck", "false");
+  editor.setAttribute("aria-label", "Edit the spec and watch the file tree change");
+  editor.rows = 17;
+  source.parentNode.replaceChild(editor, source);
+
+  var hint = document.getElementById("spec-hint");
+  if (hint) hint.textContent = "editable";
+
+  var note = document.createElement("p");
+  note.className = "panel-note";
+  note.textContent =
+    "Type in the spec and the tree follows. This is a preview of the parser, not the parser — " +
+    "the tool itself is the one that writes files.";
+  panels.appendChild(note);
+
+  function render() {
+    var result = parseSpec(editor.value);
+    if (result.error) {
+      treeHead.textContent = "refused";
+      treeHead.className = "refusal";
+      treePre.textContent = "degenerator: " + result.error;
+      treePre.className = "refusal";
+    } else {
+      treeHead.textContent = result.slug + "/";
+      treeHead.className = "";
+      treePre.textContent = tree(result.venue);
+      treePre.className = "";
+    }
+  }
+
+  editor.addEventListener("input", render);
+  render();
+})();
+</script>
+
 </body>
 </html>
