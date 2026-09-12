@@ -167,6 +167,15 @@ class TestRefusals(unittest.TestCase):
     def test_number_that_is_not_a_number(self):
         self.assertRefusal("# Bot\n\ncash: lots\n\nrules:\n- ape\n", "not a number")
 
+    def test_infinity_and_nan_are_not_numbers(self):
+        # float() accepts all three; each used to crash _tidy with a traceback.
+        for raw in ("inf", "-inf", "nan", "1e400", "infinity"):
+            with self.subTest(raw=raw):
+                self.assertRefusal(
+                    "# Bot\n\ncash: {0}\n\nrules:\n- ape\n".format(raw),
+                    "not a number",
+                )
+
     def test_negative_number(self):
         self.assertRefusal("# Bot\n\nstop_loss: -3%\n\nrules:\n- ape\n", "must be positive")
 

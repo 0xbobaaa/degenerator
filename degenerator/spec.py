@@ -6,6 +6,7 @@ whole language. Every refusal in this module is one line a human can read.
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -239,6 +240,10 @@ def _number(key: str, text: str, source: str, lineno: int) -> Number:
     try:
         value = float(body) * scale
     except ValueError:
+        value = math.nan
+    if not math.isfinite(value):
+        # float() happily accepts "inf", "nan" and "1e400"; none of them is a
+        # number anyone can size a position with, and _tidy would crash on them.
         raise SpecError(
             "{0}:{1}: {2} is not a number: {3!r}".format(source, lineno, key, text)
         )
