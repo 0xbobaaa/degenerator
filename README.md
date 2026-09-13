@@ -5,8 +5,11 @@ One spec in, one degen bot out.
 [![ci](https://github.com/0xbobaaa/degenerator/actions/workflows/ci.yml/badge.svg)](https://github.com/0xbobaaa/degenerator/actions/workflows/ci.yml)
 
 **https://www.dgenerator.xyz/** — the generator itself runs on that page: edit a spec,
-browse the repository it produces, download it as a zip. It is a port of this
-package, and `tests/test_site_generator.py` holds it byte-identical to the CLI.
+browse the repository it produces, download it as a zip. Below it is a paper desk
+that trades the bot your spec describes on synthetic prices, where every order is
+checked by the `risk.py` that spec generates. Both are ports of this package, and
+`tests/test_site_generator.py` and `tests/test_site_simulator.py` hold them to the
+same bytes and the same decisions as the CLI.
 
 `degenerator` reads a one-page spec file and writes a complete, working crypto
 trading-bot repository: source, tests, Dockerfile, GitHub Actions CI,

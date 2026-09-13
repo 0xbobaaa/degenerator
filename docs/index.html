@@ -222,6 +222,46 @@
 
   .refusals .try { margin-top: 0.35rem; }
 
+  /* --- the paper desk ---------------------------------------------------- */
+
+  .desk {
+    display: grid; gap: 1px;
+    grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+    background: var(--rule); border: 1px solid var(--rule);
+    margin: 1.5rem 0 0;
+  }
+  .desk .band, .desk .wide { grid-column: 1 / -1; }
+  .desk .band {
+    background: var(--panel); color: var(--ink); margin: 0;
+    font-family: var(--mono); font-size: var(--t-xs);
+    padding: 0.45rem 0.85rem;
+  }
+  .desk svg { display: block; width: 100%; height: 11rem; background: var(--paper); }
+  .desk svg .price { fill: none; stroke: var(--ink); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+  .desk svg .entry { stroke: var(--signal); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+  .desk svg .watermark { fill: var(--muted); font-family: var(--mono); font-size: 11px; }
+  .desk svg .stop { stroke: var(--refuse); stroke-width: 1; stroke-dasharray: 4 4; vector-effect: non-scaling-stroke; }
+
+  .desk .controls {
+    background: var(--paper); padding: 0.6rem 0.85rem;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.75rem;
+    font-family: var(--mono); font-size: var(--t-xs);
+  }
+  .desk label { display: flex; align-items: center; gap: 0.35rem; }
+  .desk input[type="range"] { width: 6.5rem; accent-color: var(--signal); }
+  .desk input[type="number"] {
+    width: 3.5rem; font: inherit; color: var(--ink);
+    background: var(--paper); border: 1px solid var(--rule); padding: 0.1rem 0.3rem;
+  }
+  .desk input[type="checkbox"] { accent-color: var(--signal); }
+  .desk .dim { color: var(--muted); }
+  .desk .stat b { font-weight: 600; }
+  .desk .panel-note { border-top: 1px solid var(--rule); }
+  .log { max-height: 14rem; overflow-y: auto; }
+  .log .text { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .log .refused .text { color: var(--refuse); }
+
+
   .caption {
     display: flex; justify-content: space-between; gap: 1rem;
     font-family: var(--mono); font-size: var(--t-xs); color: var(--muted);
@@ -335,7 +375,7 @@
   /* --- responsive ----------------------------------------------------- */
 
   @media (max-width: 46rem) {
-    .app { grid-template-columns: minmax(0, 1fr); }
+    .app, .desk { grid-template-columns: minmax(0, 1fr); }
     .three { grid-template-columns: 1fr; gap: 1.25rem; }
     .facts { grid-template-columns: repeat(2, 1fr); }
     .caption { flex-direction: column; gap: 0.15rem; margin-bottom: 1.5rem; }
@@ -358,6 +398,7 @@
   <div class="wrap">
     <span class="nav-mark">degenerator</span>
     <span class="nav-links">
+      <a href="#desk">the desk</a>
       <a href="#spec">the spec</a>
       <a href="#cli">the cli</a>
       <a href="#receipts">receipts</a>
@@ -452,6 +493,28 @@ rules:
     </ul>
   </div>
 </header>
+
+<section id="desk" aria-labelledby="desk-h">
+  <div class="wrap">
+    <h2 id="desk-h">The paper desk</h2>
+    <p class="prose lede">
+      Trade the bot the spec above describes. Every order is checked by the
+      <code>risk.py</code> that degenerator writes for that spec, so what the desk
+      refuses is what the repository refuses, word for word. The stop-loss is the
+      one from your spec, and it closes positions without asking.
+    </p>
+    <p class="prose lede">
+      Prices are a seeded random walk that starts at the price the generated paper
+      adapter quotes. No market, no money, no network, nothing to connect.
+    </p>
+    <p class="prose lede" id="desk-nojs">
+      The desk needs JavaScript: it runs the generated risk module in your browser.
+      Everything it would tell you is in <code>src/risk.py</code> of any repository
+      you generate above.
+    </p>
+    <div class="desk" id="desk-ui" hidden></div>
+  </div>
+</section>
 
 <section aria-labelledby="saves">
   <div class="wrap prose">
@@ -791,6 +854,415 @@ rules:
 venue: paper
 </script>
 <script src="degenerator.js"></script>
+<script src="simulator.js"></script>
+<script>
+(function () {
+  "use strict";
+
+  var D = window.Degenerator;
+  var S = window.Simulator;
+  var ui = document.getElementById("desk-ui");
+  var fallback = document.getElementById("desk-nojs");
+  if (!D || !S || !ui) return;
+
+  var SPEEDS = [["1x", 500], ["4x", 125], ["16x", 40]];
+  var reduceMotion = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var desk = null;
+  var pending = null;
+  var selected = null;
+  var timer = null;
+  var interval = 500;
+  var seed = 1;
+  var node = {};
+
+  function make(tag, className, text) {
+    var el = document.createElement(tag);
+    if (className) el.className = className;
+    if (text !== undefined) el.textContent = text;
+    return el;
+  }
+
+  function button(label, className, onClick) {
+    var el = make("button", className || "act", label);
+    el.type = "button";
+    el.addEventListener("click", onClick);
+    return el;
+  }
+
+  function labelled(text, control) {
+    var label = make("label");
+    label.appendChild(make("span", null, text));
+    label.appendChild(control);
+    return label;
+  }
+
+  function range(min, max, step, value, onInput) {
+    var el = document.createElement("input");
+    el.type = "range";
+    el.min = min;
+    el.max = max;
+    el.step = step;
+    el.value = value;
+    el.addEventListener("input", onInput);
+    return el;
+  }
+
+  /* ---- layout ------------------------------------------------------- */
+
+  function build() {
+    ui.textContent = "";
+
+    node.band = make("p", "band", "synthetic prices, paper fills, no money and no network");
+    ui.appendChild(node.band);
+
+    var chartPanel = make("div", "panel");
+    var chartHead = make("div", "panel-head");
+    node.tabs = make("span", "tools");
+    node.price = make("span");
+    chartHead.appendChild(node.tabs);
+    chartHead.appendChild(node.price);
+    chartPanel.appendChild(chartHead);
+
+    node.svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    node.svg.setAttribute("viewBox", "0 0 600 200");
+    node.svg.setAttribute("preserveAspectRatio", "none");
+    node.svg.setAttribute("role", "img");
+    node.svg.setAttribute("aria-label", "Synthetic price history");
+    chartPanel.appendChild(node.svg);
+
+    var controls = make("div", "controls");
+    node.run = button("run", "act primary", toggleRun);
+    controls.appendChild(node.run);
+    controls.appendChild(button("step", "act", function () { step(1); }));
+    node.speed = make("span", "tools");
+    SPEEDS.forEach(function (pair, i) {
+      var chip = button(pair[0], "chip", function () {
+        interval = pair[1];
+        Array.prototype.forEach.call(node.speed.children, function (other, j) {
+          other.setAttribute("aria-pressed", String(i === j));
+        });
+        if (timer) { stop(); run(); }
+      });
+      chip.setAttribute("aria-pressed", String(i === 0));
+      node.speed.appendChild(chip);
+    });
+    controls.appendChild(node.speed);
+    node.volatility = range(0, 20, 1, 6, function () {
+      if (desk) desk.volatility = Number(node.volatility.value) / 1000;
+      paint();
+    });
+    controls.appendChild(labelled("volatility", node.volatility));
+    node.trend = range(-20, 20, 1, 0, function () {
+      if (desk) desk.trend = Number(node.trend.value) / 20000;
+      paint();
+    });
+    controls.appendChild(labelled("trend", node.trend));
+    controls.appendChild(button("shock -10%", "act", function () {
+      if (desk) { S.shock(desk, selected, -0.1); paint(); }
+    }));
+    controls.appendChild(button("reset", "act", function () { restart(desk.spec, seed); }));
+    controls.appendChild(button("new market", "act", function () { restart(desk.spec, seed + 1); }));
+    node.seed = make("span", "dim");
+    controls.appendChild(node.seed);
+    chartPanel.appendChild(controls);
+    ui.appendChild(chartPanel);
+
+    var side = make("div", "panel");
+    var ticketHead = make("div", "panel-head");
+    ticketHead.appendChild(make("span", null, "ticket"));
+    node.caps = make("span");
+    ticketHead.appendChild(node.caps);
+    side.appendChild(ticketHead);
+
+    var ticket = make("div", "controls");
+    node.long = button("long", "act", function () { order("long"); });
+    node.short = button("short", "act", function () { order("short"); });
+    node.close = button("close", "act", function () {
+      if (desk && desk.positions[selected]) { S.close(desk, selected, "you"); paint(); }
+    });
+    ticket.appendChild(node.long);
+    ticket.appendChild(node.short);
+    ticket.appendChild(node.close);
+    node.size = range(10, 200, 5, 100, paint);
+    ticket.appendChild(labelled("size", node.size));
+    node.leverage = document.createElement("input");
+    node.leverage.type = "number";
+    node.leverage.min = "1";
+    node.leverage.step = "1";
+    node.leverage.addEventListener("input", paint);
+    ticket.appendChild(labelled("leverage", node.leverage));
+    node.auto = document.createElement("input");
+    node.auto.type = "checkbox";
+    node.auto.addEventListener("change", function () {
+      if (desk) desk.autopilot = node.auto.checked;
+      paint();
+    });
+    ticket.appendChild(labelled("autopilot", node.auto));
+    side.appendChild(ticket);
+
+    node.ticketNote = make("p", "panel-note");
+    side.appendChild(node.ticketNote);
+
+    var accountHead = make("div", "panel-head");
+    accountHead.appendChild(make("span", null, "account"));
+    node.equity = make("span");
+    accountHead.appendChild(node.equity);
+    side.appendChild(accountHead);
+    node.account = make("div", "controls");
+    side.appendChild(node.account);
+    ui.appendChild(side);
+
+    var logPanel = make("div", "panel wide");
+    var logHead = make("div", "panel-head");
+    logHead.appendChild(make("span", null, "decisions"));
+    var logTools = make("span", "tools");
+    node.reload = button("load the spec above", "chip", function () {
+      if (pending) restart(pending, seed);
+    });
+    node.reload.hidden = true;
+    logTools.appendChild(node.reload);
+    logTools.appendChild(button("export session json", "act", exportSession));
+    logHead.appendChild(logTools);
+    logPanel.appendChild(logHead);
+    node.log = make("ul", "files log");
+    node.log.setAttribute("aria-label", "What the desk did");
+    logPanel.appendChild(node.log);
+    ui.appendChild(logPanel);
+
+    node.status = make("p", "panel-note wide");
+    node.status.setAttribute("aria-live", "polite");
+    ui.appendChild(node.status);
+  }
+
+  /* ---- running ------------------------------------------------------ */
+
+  function run() {
+    if (!desk || desk.halted) return;
+    timer = setInterval(function () { step(1); }, interval);
+    node.run.textContent = "pause";
+  }
+
+  function stop() {
+    clearInterval(timer);
+    timer = null;
+    node.run.textContent = "run";
+  }
+
+  function toggleRun() {
+    if (timer) stop();
+    else run();
+  }
+
+  function step(count) {
+    for (var i = 0; i < count; i++) S.tick(desk);
+    if (desk.halted) stop();
+    paint();
+  }
+
+  function restart(spec, nextSeed) {
+    stop();
+    seed = nextSeed;
+    desk = S.create(spec, { seed: seed, volatility: Number(node.volatility.value) / 1000 });
+    desk.trend = Number(node.trend.value) / 20000;
+    desk.autopilot = node.auto.checked;
+    selected = spec.pairs[0];
+    node.leverage.value = String(spec.leverage.v);
+    pending = null;
+    node.reload.hidden = true;
+    paint();
+  }
+
+  function order(side) {
+    if (!desk) return;
+    var cap = desk.risk.maxNotional(S.equity(desk));
+    var notional = (cap * Number(node.size.value)) / 100;
+    var asked = Number(node.leverage.value);
+    var entry = S.submit(desk, {
+      pair: selected,
+      side: side,
+      notional: notional,
+      leverage: Number.isInteger(asked) ? { v: asked, int: true } : { v: asked, int: false },
+    });
+    node.status.textContent = entry ? entry.source + ": " + entry.text : "";
+    paint();
+  }
+
+  function exportSession() {
+    var data = JSON.stringify(S.session(desk), null, 2);
+    var blob = new Blob([data], { type: "application/json" });
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = desk.spec.slug + "-session.json";
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+
+  /* ---- painting ----------------------------------------------------- */
+
+  function quote() {
+    return desk.markets.filter(function (m) { return m.pair === selected; })[0];
+  }
+
+  function money(value) {
+    return S.money(value);
+  }
+
+  // The caps read as the spec wrote them: 3%, not 0.03.
+  function percent(number) {
+    var scaled = number.v * 100;
+    var shown = Number.isInteger(scaled) ? String(scaled) : D.py.reprFloat(D.py.roundTo(scaled, 6));
+    return shown + "%";
+  }
+
+  function drawChart() {
+    var market = quote();
+    var history = market.history.slice(-120);
+    var position = desk.positions[selected];
+    var low = Math.min.apply(null, history);
+    var high = Math.max.apply(null, history);
+    if (position) {
+      low = Math.min(low, position.stop, position.entry);
+      high = Math.max(high, position.stop, position.entry);
+    }
+    var span = high - low || high || 1;
+    low -= span * 0.08;
+    high += span * 0.08;
+    var y = function (price) { return 200 - ((price - low) / (high - low)) * 200; };
+    var x = function (i) { return history.length < 2 ? 0 : (i / (history.length - 1)) * 600; };
+
+    var points = history.map(function (price, i) { return x(i).toFixed(1) + "," + y(price).toFixed(1); });
+    node.svg.textContent = "";
+    var line = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    line.setAttribute("points", points.join(" "));
+    line.setAttribute("class", "price");
+    node.svg.appendChild(line);
+
+    // The chart says what it is, so a screenshot of it does too.
+    var mark = document.createElementNS("http://www.w3.org/2000/svg", "text");
+    mark.setAttribute("x", 8);
+    mark.setAttribute("y", 16);
+    mark.setAttribute("class", "watermark");
+    mark.textContent = "synthetic";
+    node.svg.appendChild(mark);
+
+    if (position) {
+      [["entry", position.entry], ["stop", position.stop]].forEach(function (pair) {
+        var mark = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        mark.setAttribute("x1", 0);
+        mark.setAttribute("x2", 600);
+        mark.setAttribute("y1", y(pair[1]));
+        mark.setAttribute("y2", y(pair[1]));
+        mark.setAttribute("class", pair[0]);
+        node.svg.appendChild(mark);
+      });
+    }
+  }
+
+  function paint() {
+    if (!desk) return;
+    var equity = S.equity(desk);
+    var cap = desk.risk.maxNotional(equity);
+    var market = quote();
+    var position = desk.positions[selected];
+    var py = D.py;
+
+    node.tabs.textContent = "";
+    desk.spec.pairs.forEach(function (pair) {
+      var chip = button(pair, "chip", function () { selected = pair; paint(); });
+      chip.setAttribute("aria-pressed", String(pair === selected));
+      node.tabs.appendChild(chip);
+    });
+    node.price.textContent = "t" + desk.t + "  " + py.fixed(market.price, 2);
+    node.seed.textContent = "seed " + desk.seed;
+
+    drawChart();
+
+    node.caps.textContent =
+      "cap " + py.fixed(cap, 2) + " / stop " + percent(desk.spec.stop_loss) +
+      " / leverage " + py.numStr(desk.spec.leverage) + "x";
+    node.close.disabled = !position;
+    node.long.disabled = !!position || desk.halted;
+    node.short.disabled = !!position || desk.halted;
+    node.ticketNote.textContent =
+      "size " + node.size.value + "% of the cap = " + py.fixed((cap * Number(node.size.value)) / 100, 2) +
+      ". Every order goes through the risk.py this spec generates, and so does the stop. " +
+      "Autopilot is a demo strategy, an 8 over 21 moving-average cross, not the rules you wrote.";
+
+    node.equity.textContent = "equity " + py.fixed(equity, 2);
+    node.account.textContent = "";
+    var open = 0;
+    Object.keys(desk.positions).forEach(function (pair) {
+      open += S.unrealised(desk.positions[pair], desk.markets.filter(function (m) {
+        return m.pair === pair;
+      })[0].price);
+    });
+    [
+      ["cash", py.fixed(desk.cash, 2)],
+      ["realised", money(desk.realised)],
+      ["open", money(open)],
+      ["positions", String(Object.keys(desk.positions).length)],
+    ].forEach(function (pair) {
+      var stat = make("span", "stat");
+      stat.appendChild(make("span", "dim", pair[0] + " "));
+      stat.appendChild(make("b", null, pair[1]));
+      node.account.appendChild(stat);
+    });
+    if (position) {
+      var line = make("span", "stat");
+      line.appendChild(make("span", "dim", position.side + " " + selected + " "));
+      line.appendChild(make("b", null, py.fixed(position.notional, 2)));
+      line.appendChild(make("span", "dim", " entry " + py.fixed(position.entry, 2) +
+        " stop " + py.fixed(position.stop, 2) + " "));
+      line.appendChild(make("b", null, money(S.unrealised(position, market.price))));
+      node.account.appendChild(line);
+    }
+
+    node.log.textContent = "";
+    desk.log.slice(-40).reverse().forEach(function (entry) {
+      var li = make("li", entry.kind === "refused" || entry.kind === "stopped" ? "refused" : "");
+      var row = make("span", "row");
+      row.appendChild(make("span", "glyph", "t" + entry.t + " " + (entry.source || "desk") + "  "));
+      row.appendChild(make("span", "text", entry.text));
+      li.appendChild(row);
+      node.log.appendChild(li);
+    });
+  }
+
+  /* ---- wiring ------------------------------------------------------- */
+
+  function sameSpec(a, b) {
+    if (!a || !b) return false;
+    return JSON.stringify([a.slug, a.venue, a.pairs, a.max_position, a.stop_loss, a.leverage, a.cash]) ===
+      JSON.stringify([b.slug, b.venue, b.pairs, b.max_position, b.stop_loss, b.leverage, b.cash]);
+  }
+
+  document.addEventListener("degenerator:spec", function (event) {
+    var spec = event.detail;
+    if (!spec) return;
+    if (!desk) {
+      restart(spec, seed);
+      return;
+    }
+    if (sameSpec(spec, desk.spec)) {
+      pending = null;
+      node.reload.hidden = true;
+    } else {
+      pending = spec;
+      node.reload.hidden = false;
+    }
+  });
+
+  build();
+  if (fallback) fallback.hidden = true;
+  ui.hidden = false;
+  if (reduceMotion) node.band.textContent += " (press step rather than run if motion bothers you)";
+})();
+</script>
+
 <script>
 (function () {
   "use strict";
@@ -1004,6 +1476,7 @@ venue: paper
     viewer.hidden = true;
     next.hidden = true;
     download.disabled = true;
+    document.dispatchEvent(new CustomEvent("degenerator:spec", { detail: null }));
   }
 
   function render() {
@@ -1035,6 +1508,7 @@ venue: paper
     download.textContent = "download " + spec.slug + ".zip";
     next.textContent = "$ unzip " + spec.slug + ".zip && cd " + spec.slug + " && make test";
     next.hidden = false;
+    document.dispatchEvent(new CustomEvent("degenerator:spec", { detail: spec }));
   }
 
   copyFile.addEventListener("click", function () {
@@ -1059,6 +1533,7 @@ venue: paper
   render();
 })();
 </script>
+
 
 </body>
 </html>

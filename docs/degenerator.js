@@ -169,10 +169,10 @@
     return (x < 0 ? "-" : "") + body;
   }
 
-  // round(x, n) as CPython does it: on the exact binary value, halves to even.
-  // toFixed() sends halves up, and some halves are exactly representable.
-  function roundTo(x, ndigits) {
-    if (!isFinite(x) || x === 0) return x;
+  // |x| * 10**ndigits, rounded half to even on the exact binary value, as a
+  // BigInt. It is what CPython's round() and format(x, ".Nf") both come down
+  // to; toFixed() and Math.round() send halves up, and some halves are exact.
+  function scaled(x, ndigits) {
     const view = new DataView(new ArrayBuffer(8));
     view.setFloat64(0, Math.abs(x));
     const hi = view.getUint32(0);
@@ -186,14 +186,29 @@
       mantissa |= 1n << 52n;
       exp = biased - 1075;
     }
-    if (exp >= 0) return x; // already a whole number
-    const numerator = mantissa * 10n ** BigInt(ndigits);
+    const ten = 10n ** BigInt(ndigits);
+    if (exp >= 0) return (mantissa << BigInt(exp)) * ten;
+    const numerator = mantissa * ten;
     const denominator = 1n << BigInt(-exp);
     let q = numerator / denominator;
     const twice = (numerator % denominator) * 2n;
     if (twice > denominator || (twice === denominator && q % 2n === 1n)) q += 1n;
-    const result = Number(q.toString() + "e-" + ndigits);
+    return q;
+  }
+
+  // round(x, n) for a float.
+  function roundTo(x, ndigits) {
+    if (!isFinite(x) || x === 0) return x;
+    const result = Number(scaled(x, ndigits).toString() + "e-" + ndigits);
     return x < 0 ? -result : result;
+  }
+
+  // format(x, ".Nf"): every digit of the exact value, sign kept on a negative zero.
+  function fixed(x, ndigits) {
+    const negative = x < 0 || Object.is(x, -0);
+    const digits = (x === 0 ? 0n : scaled(x, ndigits)).toString().padStart(ndigits + 1, "0");
+    const body = ndigits ? digits.slice(0, -ndigits) + "." + digits.slice(-ndigits) : digits;
+    return (negative ? "-" : "") + body;
   }
 
   // Python keeps int and float apart and generated source shows it:
@@ -1047,7 +1062,7 @@
     let total = 0;
     for (const entry of files) total += encoder.encode(entry[1]).length;
     // "{0:.1f}kb".format(total / 1000.0) rounds the binary value half to even.
-    return { bytes: total, label: roundTo(total / 1000, 1).toFixed(1) + "kb" };
+    return { bytes: total, label: fixed(total / 1000, 1) + "kb" };
   }
 
   // --- a .zip, written by hand ----------------------------------------------
@@ -1149,6 +1164,7 @@
 
   return {
     VENUES: VENUES,
+    SPOT_ONLY: SPOT_ONLY,
     DIRECTORIES: DIRECTORIES,
     SpecError: SpecError,
     parse: parse,
@@ -1156,5 +1172,7 @@
     size: size,
     bundle: bundle,
     filename: filename,
+    // Python's number formatting, for the paper desk's copy of risk.py.
+    py: { reprFloat: reprFloat, roundTo: roundTo, fixed: fixed, numStr: numStr },
   };
 });
