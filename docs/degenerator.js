@@ -437,8 +437,9 @@
     ];
     if (SPOT_ONLY.includes(spec.venue)) {
       out.push(
-        "- " + spec.venue + " chain is spot only: there is no leverage to ask for, and the " +
-          "generated adapter models swaps against a pool rather than order book fills."
+        "- " + spec.venue + " chain is spot only: there is no leverage to ask for and no short " +
+          "to sell, which `src/risk.py` refuses, and the generated adapter models " +
+          "swaps against a pool rather than order book fills."
       );
     }
     out.push(
@@ -619,8 +620,9 @@
       "        run: docker build -t " + spec.slug + " .",
     ]);
 
-  const risk = (spec) =>
-    block([
+  function risk(spec) {
+    const spot = SPOT_ONLY.includes(spec.venue);
+    const out = [
       '"""The only file allowed to say no.',
       "",
       "Every number here traces back to a line in the spec or to a documented",
@@ -639,6 +641,15 @@
       "",
       "# " + origin(spec, "cash"),
       "CASH = " + num(spec.cash),
+    ];
+    if (spot) {
+      out.push(
+        "",
+        "# venue: " + spec.venue + " chain is spot only, so there is nothing to borrow and no short",
+        "SPOT_ONLY = True"
+      );
+    }
+    out.push(
       "",
       "",
       "def max_notional(equity):",
@@ -659,7 +670,15 @@
       '    """Return a refusal string, or None when the order is allowed."""',
       '    notional = order["notional"]',
       "    if notional <= 0:",
-      '        return "notional must be positive, got {0}".format(notional)',
+      '        return "notional must be positive, got {0}".format(notional)'
+    );
+    if (spot) {
+      out.push(
+        '    if SPOT_ONLY and order.get("side") == "short":',
+        '        return "short refused: ' + spec.venue + ' chain is spot only, there is nothing to borrow"'
+      );
+    }
+    out.push(
       "    cap = max_notional(equity)",
       "    if notional > cap:",
       '        return "notional {0:.2f} over the cap {1:.2f} (max_position {2}, leverage {3})".format(',
@@ -667,8 +686,10 @@
       "        )",
       '    if order.get("leverage", LEVERAGE) > LEVERAGE:',
       '        return "leverage {0} over the cap {1}".format(order["leverage"], LEVERAGE)',
-      "    return None",
-    ]);
+      "    return None"
+    );
+    return block(out);
+  }
 
   function strategy(spec) {
     const out = [
@@ -885,6 +906,14 @@
 
   function testRisk(spec) {
     const cls = className(spec.venue);
+    const shortOnSpot = SPOT_ONLY.includes(spec.venue)
+      ? [
+          "",
+          "    def test_a_short_is_refused_on_a_spot_venue(self):",
+          '        order = {"pair": "BTC", "side": "short", "notional": 1.0}',
+          '        self.assertIn("spot only", risk.check(order, risk.CASH))',
+        ]
+      : [];
     return block([
       '"""The caps from the spec, asserted.',
       "",
@@ -948,6 +977,7 @@
       '            "leverage": risk.LEVERAGE + 1,',
       "        }",
       '        self.assertIn("leverage", risk.check(order, risk.CASH))',
+      ...shortOnSpot,
       "",
       "",
       "class TestPaperOnly(unittest.TestCase):",

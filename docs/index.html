@@ -560,7 +560,8 @@ rules:
         <b>robinhood</b> — Robinhood Chain, an Ethereum layer-2 on Arbitrum
         Orbit. <strong>Spot only:</strong> there is no leverage to ask for, so a
         spec that pairs it with leverage above 1 is refused, pointing at the
-        line to delete. Its adapter marks fills <code>model=swap</code> rather
+        line to delete. Its <code>risk.py</code> refuses a short, because there is
+        nothing to borrow, and its adapter marks fills <code>model=swap</code> rather
         than implying an order book, and its <code>.env.example</code> asks for
         an RPC URL and nothing else.
       </li>

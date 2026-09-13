@@ -74,6 +74,21 @@ def imported_roots(source):
     return roots
 
 
+def check_orders(repo, *orders):
+    """Run the generated risk.check on each order and return its repr, one per order."""
+    code = (
+        "import sys; sys.path.insert(0, 'src'); import risk\n"
+        "for order in {0!r}:\n"
+        "    print(repr(risk.check(order, risk.CASH)))\n"
+    ).format(list(orders))
+    done = subprocess.run(
+        [sys.executable, "-c", code], cwd=str(repo), stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    )
+    if done.returncode:
+        raise AssertionError(done.stderr.decode("utf-8", "replace"))
+    return done.stdout.decode("utf-8").splitlines()
+
+
 class TestTable(unittest.TestCase):
     """plan() and the file table cannot drift apart."""
 
@@ -161,6 +176,11 @@ class TestGeneratedRepo(unittest.TestCase):
             with warnings.catch_warnings():
                 warnings.simplefilter("error")
                 compile(source, relative, "exec")
+
+    def test_a_perps_venue_still_allows_a_short(self):
+        risk = (self.out / "src/risk.py").read_text(encoding="utf-8")
+        self.assertNotIn("SPOT_ONLY", risk)
+        self.assertEqual(["None"], check_orders(self.out, {"pair": "BTC", "side": "short", "notional": 1.0}))
 
     def test_stdlib_imports_only(self):
         for relative in scaffold.plan(self.spec):
@@ -269,6 +289,17 @@ class TestRobinhoodRepo(unittest.TestCase):
         )
         self.assertNotEqual(0, done.returncode)
         self.assertIn("paper-mode stub", done.stdout.decode("utf-8", "replace"))
+
+    def test_risk_refuses_a_short_and_allows_a_long(self):
+        short, long_ = check_orders(
+            self.out,
+            {"pair": "PONS", "side": "short", "notional": 1.0},
+            {"pair": "PONS", "side": "long", "notional": 1.0},
+        )
+        self.assertEqual(
+            repr("short refused: robinhood chain is spot only, there is nothing to borrow"), short
+        )
+        self.assertEqual("None", long_)
 
     def test_the_readme_says_spot_only(self):
         readme = (self.out / "README.md").read_text(encoding="utf-8")

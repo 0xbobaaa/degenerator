@@ -88,8 +88,9 @@ rules:
 - An unknown `venue` is refused, and the error lists the valid ones.
 - `robinhood` is spot only. Robinhood Chain is an Ethereum layer-2 with no
   leverage to give, so a spec that pairs it with `leverage` above `1` is
-  refused, pointing at the `leverage` line you need to delete. Its generated
-  adapter marks fills `model=swap` rather than pretending there is an order
+  refused, pointing at the `leverage` line you need to delete. The generated
+  `risk.py` also refuses a short, because a spot chain has nothing to lend, and
+  the adapter marks fills `model=swap` rather than pretending there is an order
   book.
 - Rules are copied verbatim into `strategy.py` as comments. degenerator does
   not try to parse English into code.

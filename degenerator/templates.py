@@ -108,9 +108,9 @@ def _readme(spec: Spec) -> str:
     ]
     if spec.venue in SPOT_ONLY:
         out.append(
-            "- {0} chain is spot only: there is no leverage to ask for, and the "
-            "generated adapter models swaps against a pool rather than order "
-            "book fills.".format(spec.venue)
+            "- {0} chain is spot only: there is no leverage to ask for and no short "
+            "to sell, which `src/risk.py` refuses, and the generated adapter models "
+            "swaps against a pool rather than order book fills.".format(spec.venue)
         )
     out += [
         "",
@@ -307,26 +307,41 @@ def _ci(spec: Spec) -> str:
 
 
 def _risk(spec: Spec) -> str:
+    spot = spec.venue in SPOT_ONLY
+    out = [
+        '"""The only file allowed to say no.',
+        "",
+        "Every number here traces back to a line in the spec or to a documented",
+        "default — the comment above each one says which. Nothing else in this",
+        "repo may raise a cap; everything else asks this module first.",
+        '"""',
+        "",
+        "# {0}".format(spec.origin("max_position")),
+        "MAX_POSITION = {0}".format(_num(spec.max_position)),
+        "",
+        "# {0}".format(spec.origin("stop_loss")),
+        "STOP_LOSS = {0}".format(_num(spec.stop_loss)),
+        "",
+        "# {0}".format(spec.origin("leverage")),
+        "LEVERAGE = {0}".format(_num(spec.leverage)),
+        "",
+        "# {0}".format(spec.origin("cash")),
+        "CASH = {0}".format(_num(spec.cash)),
+    ]
+    if spot:
+        # Not a number from the spec: a fact about the venue it named. A spot
+        # chain can sell what it holds and nothing more, so a short is refused
+        # here, where every other refusal lives.
+        out += [
+            "",
+            "# venue: {0} chain is spot only, so there is nothing to borrow and no short".format(
+                spec.venue
+            ),
+            "SPOT_ONLY = True",
+        ]
     return _block(
-        [
-            '"""The only file allowed to say no.',
-            "",
-            "Every number here traces back to a line in the spec or to a documented",
-            "default — the comment above each one says which. Nothing else in this",
-            "repo may raise a cap; everything else asks this module first.",
-            '"""',
-            "",
-            "# {0}".format(spec.origin("max_position")),
-            "MAX_POSITION = {0}".format(_num(spec.max_position)),
-            "",
-            "# {0}".format(spec.origin("stop_loss")),
-            "STOP_LOSS = {0}".format(_num(spec.stop_loss)),
-            "",
-            "# {0}".format(spec.origin("leverage")),
-            "LEVERAGE = {0}".format(_num(spec.leverage)),
-            "",
-            "# {0}".format(spec.origin("cash")),
-            "CASH = {0}".format(_num(spec.cash)),
+        out
+        + [
             "",
             "",
             "def max_notional(equity):",
@@ -348,6 +363,18 @@ def _risk(spec: Spec) -> str:
             '    notional = order["notional"]',
             "    if notional <= 0:",
             '        return "notional must be positive, got {0}".format(notional)',
+        ]
+        + (
+            [
+                '    if SPOT_ONLY and order.get("side") == "short":',
+                '        return "short refused: {0} chain is spot only, there is nothing to borrow"'.format(
+                    spec.venue
+                ),
+            ]
+            if spot
+            else []
+        )
+        + [
             "    cap = max_notional(equity)",
             "    if notional > cap:",
             '        return "notional {0:.2f} over the cap {1:.2f} (max_position {2}, leverage {3})".format(',
@@ -649,6 +676,18 @@ def _test_risk(spec: Spec) -> str:
             '            "leverage": risk.LEVERAGE + 1,',
             "        }",
             '        self.assertIn("leverage", risk.check(order, risk.CASH))',
+        ]
+        + (
+            [
+                "",
+                "    def test_a_short_is_refused_on_a_spot_venue(self):",
+                '        order = {"pair": "BTC", "side": "short", "notional": 1.0}',
+                '        self.assertIn("spot only", risk.check(order, risk.CASH))',
+            ]
+            if spec.venue in SPOT_ONLY
+            else []
+        )
+        + [
             "",
             "",
             "class TestPaperOnly(unittest.TestCase):",
