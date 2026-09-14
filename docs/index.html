@@ -4,322 +4,317 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>degenerator — one spec in, one degen bot out</title>
-<meta name="description" content="Paper trading bots running live in your browser, each held to the risk.py its spec generates. Watch them, take one over, or write a spec and put your own bot on the tape. No install.">
-<meta name="theme-color" content="#000000">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Cpath d='M4 4l4 4-4 4' stroke='%2300ff85' stroke-width='2' fill='none'/%3E%3C/svg%3E">
+<meta name="description" content="Paper trading bots printing their receipts live in your browser, each held to the risk.py its spec generates. Watch them, take one over, or write a spec and put your own bot on the tape. No install.">
+<meta name="theme-color" content="#1A1714">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23F3EDE0'/%3E%3Cpath d='M4 4l4 4-4 4' stroke='%23B8122E' stroke-width='2.2' fill='none'/%3E%3C/svg%3E">
 <link rel="canonical" href="https://www.dgenerator.xyz/">
-<link rel="preload" href="fonts/space-grotesk.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/jetbrains-mono.woff2" as="font" type="font/woff2" crossorigin>
 
 <!--
   Token constants live in exactly these places and nowhere else:
-    ticker   — the eyebrow and <h2> of the token section, and its facts grid
+    ticker   — the coupon in the token section and its facts list
     contract — the single <code id="ca-value">; to ship a real address, replace
                TBA there and delete the `disabled` on its copy button
-  Fonts are served from fonts/ with their OFL licences: no third-party request.
+  The font is served from fonts/ with its OFL licence: no third-party request.
 -->
 
 <style>
-  @font-face { font-family: "Space Grotesk"; src: url(fonts/space-grotesk.woff2) format("woff2"); font-weight: 300 700; font-display: swap; }
-  @font-face { font-family: "JetBrains Mono"; src: url(fonts/jetbrains-mono.woff2) format("woff2"); font-weight: 400 600; font-display: swap; }
+  @font-face { font-family: "JetBrains Mono"; src: url(fonts/jetbrains-mono.woff2) format("woff2"); font-weight: 100 800; font-display: swap; }
 
   :root {
-    --black: #000000;
-    --ink: #FFFFFF;
-    --rule: #5F5F5F;
-    --muted: #9A9A9A;
-    --yellow: #FCFF76;
-    --green: #00FF85;
-    --red: #FF3355;
-    --violet: #6100FF;
-    --amber: #FF8A00;
-    --sans: "Space Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --desk: #1A1714;
+    --desk-2: #24201B;
+    --desk-ink: #EDE6D8;
+    --desk-dim: #A89F90;
+    --paper: #F3EDE0;
+    --paper-2: #E9E1D0;
+    --ink: #1C1A17;
+    --faded: #655E52;
+    --stamp: #B8122E;
+    --gain: #1F6B3A;
     --mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    /* The file tree draws with box characters the subset font lacks. */
     --code: ui-monospace, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    --tooth: 7px;
     color-scheme: dark;
   }
 
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  html { background: var(--black); scroll-behavior: smooth; }
+  html { background: var(--desk); scroll-behavior: smooth; }
   body {
-    margin: 0; background: var(--black); color: var(--ink);
-    font: 400 15px/1.5 var(--sans); letter-spacing: -0.01em;
+    margin: 0; color: var(--desk-ink); font: 400 14px/1.55 var(--mono);
     -webkit-font-smoothing: antialiased; font-variant-numeric: tabular-nums;
+    background:
+      radial-gradient(1200px 700px at 70% -10%, rgba(255, 214, 150, 0.09), transparent 60%),
+      repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 2px, transparent 2px 7px),
+      var(--desk);
   }
-  a { color: var(--green); text-decoration: none; }
-  a:hover { text-decoration: underline; }
-  :focus-visible { outline: 1px solid var(--yellow); outline-offset: 2px; }
-  p { margin: 0 0 12px; max-width: 68ch; }
-  h1, h2, h3 { font-weight: 300; margin: 0; text-wrap: balance; }
-  h1 { font-size: clamp(38px, 6.4vw, 66px); line-height: 0.98; letter-spacing: 0.06em; text-transform: uppercase; }
-  h2 { font-size: clamp(26px, 4vw, 32px); line-height: 1.15; letter-spacing: 0.025em; text-transform: uppercase; }
-  h3 { font-size: 20px; line-height: 1.2; }
-  code { font-family: var(--mono); font-size: 0.9em; }
-  strong { font-weight: 700; }
-
-  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 20px; }
-  .mono { font-family: var(--mono); }
-  .g { color: var(--green); } .r { color: var(--red); } .y { color: var(--yellow); } .m { color: var(--muted); }
-
+  a { color: inherit; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; }
+  :focus-visible { outline: 2px dashed var(--stamp); outline-offset: 3px; }
+  p { margin: 0 0 12px; max-width: 64ch; }
+  h1, h2, h3 { margin: 0; font-weight: 800; text-transform: uppercase; letter-spacing: 0.02em; }
+  code { font-family: var(--mono); font-size: 0.92em; }
+  .wrap { max-width: 1140px; margin: 0 auto; padding: 0 20px; }
   .skip { position: absolute; left: -9999px; }
-  .skip:focus { left: 8px; top: 8px; background: var(--black); padding: 6px 10px; z-index: 30; }
+  .skip:focus { left: 8px; top: 8px; background: var(--paper); color: var(--ink); padding: 6px 10px; z-index: 30; }
+  .dim { color: var(--faded); }
+  .neg { color: var(--stamp); }
+  .pos { color: var(--gain); }
 
-  /* --- masthead ----------------------------------------------------- */
-  .masthead { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 14px 0; border-bottom: 1px solid var(--ink); }
-  .brand { display: flex; align-items: center; gap: 11px; color: var(--ink); }
-  .brand:hover { text-decoration: none; }
-  .brand svg { width: 28px; height: 28px; flex: none; }
-  .wordmark { font-weight: 700; font-size: 17px; letter-spacing: 0.055em; text-transform: uppercase; line-height: 1; }
-  .wordmark i { font-style: normal; font-weight: 300; }
-  nav.tabs { display: flex; gap: 6px 18px; margin-left: auto; flex-wrap: wrap; }
-  nav.tabs a { font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-  nav.tabs a:hover { color: var(--ink); text-decoration: none; }
+  /* --- paper ---------------------------------------------------------
+     .receipt carries the shadow, .paper is masked into torn teeth; a mask
+     would cut a shadow drawn on the same element.                        */
+  .receipt { filter: drop-shadow(0 10px 18px rgba(0,0,0,0.45)) drop-shadow(0 1px 1px rgba(0,0,0,0.35)); min-width: 0; }
+  .paper {
+    position: relative; background: var(--paper); color: var(--ink);
+    padding: calc(var(--tooth) + 16px) 20px calc(var(--tooth) + 18px);
+    background-image: linear-gradient(180deg, rgba(0,0,0,0.025), transparent 30%, rgba(0,0,0,0.03));
+    -webkit-mask:
+      conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / calc(2 * var(--tooth)) 51% repeat-x,
+      conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(2 * var(--tooth)) 51% repeat-x;
+            mask:
+      conic-gradient(from 135deg at top, #0000, #000 1deg 89deg, #0000 90deg) top / calc(2 * var(--tooth)) 51% repeat-x,
+      conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / calc(2 * var(--tooth)) 51% repeat-x;
+  }
+  .paper a { color: var(--ink); }
+  .tilt-l { transform: rotate(-0.5deg); }
+  .tilt-r { transform: rotate(0.45deg); }
+  .cut { border: 0; border-top: 2px dashed rgba(28,26,23,0.35); margin: 12px 0; }
+  .dots { display: flex; gap: 8px; align-items: baseline; }
+  .dots::after { content: ""; order: 1; flex: 1; border-bottom: 2px dotted rgba(28,26,23,0.35); transform: translateY(-4px); }
+  .dots > :last-child { order: 2; }
+  .head { text-align: center; }
+  .head .big { font-size: 20px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; }
+  .head .small { font-size: 11px; color: var(--faded); letter-spacing: 0.06em; text-transform: uppercase; }
+  .barcode { height: 34px; margin: 14px auto 2px; max-width: 220px;
+    background: repeating-linear-gradient(90deg, var(--ink) 0 2px, transparent 2px 4px, var(--ink) 4px 5px, transparent 5px 8px, var(--ink) 8px 11px, transparent 11px 12px); }
 
-  main { padding: 25px 0 60px; }
-  section { margin-top: 25px; }
-
-  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; margin: 0 0 18px; max-width: none; }
-  .led { width: 7px; height: 7px; border-radius: 50%; background: var(--rule); flex: none; }
-  .live .led { background: var(--green); box-shadow: 0 0 8px var(--green); animation: blink 1.6s steps(2, end) infinite; }
-  @keyframes blink { 50% { opacity: 0.35; } }
+  .stamp {
+    display: inline-block; color: var(--stamp); border: 2px solid currentColor; border-radius: 4px;
+    padding: 0 6px; font-weight: 800; font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase;
+    line-height: 1.6; transform: rotate(-4deg); vertical-align: 1px; white-space: nowrap;
+  }
+  .stamp.ok { color: var(--gain); }
+  .stamp.ink { color: var(--ink); }
+  .bigstamp {
+    position: absolute; right: 16px; top: 18px; z-index: 2; pointer-events: none;
+    color: var(--stamp); border: 4px double currentColor; border-radius: 8px; padding: 2px 12px;
+    font-size: 26px; font-weight: 800; letter-spacing: 0.16em; text-transform: uppercase;
+    transform: rotate(-9deg); opacity: 0.88; mix-blend-mode: multiply;
+  }
+  .bigstamp.ok { color: var(--gain); }
+  .bigstamp.ink { color: var(--ink); }
+  .bigstamp.hit { animation: thud 0.28s ease-out; }
+  @keyframes thud { from { transform: rotate(-9deg) scale(1.8); opacity: 0; } to { transform: rotate(-9deg) scale(1); opacity: 0.88; } }
 
   .btn {
-    display: inline-flex; align-items: center; gap: 8px;
-    font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
-    color: var(--ink); background: transparent; border: 1px solid var(--ink); border-radius: 999px;
-    padding: 9px 16px; cursor: pointer; line-height: 1;
+    display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+    font: 700 12px/1 var(--mono); letter-spacing: 0.1em; text-transform: uppercase; text-decoration: none;
+    color: var(--ink); background: var(--paper); border: 2px solid var(--ink); padding: 10px 14px;
+    box-shadow: 3px 3px 0 var(--ink);
   }
-  .btn:hover:not([disabled]) { background: var(--ink); color: var(--black); text-decoration: none; }
-  .btn.primary { background: var(--violet); border-color: var(--violet); color: var(--ink); }
-  .btn.primary:hover:not([disabled]) { background: var(--ink); border-color: var(--ink); color: var(--black); }
-  .btn[disabled] { opacity: 0.4; cursor: not-allowed; }
-  .btn.small { padding: 6px 11px; font-size: 10px; }
+  .btn:hover:not([disabled]) { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--ink); }
+  .btn:active:not([disabled]) { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--ink); }
+  .btn.red { background: var(--stamp); border-color: var(--stamp); color: #FFF7EE; box-shadow: 3px 3px 0 #000; }
+  .btn.on-desk { box-shadow: 3px 3px 0 #000; }
+  .btn.ghost { background: transparent; color: var(--desk-ink); border-color: var(--desk-ink); box-shadow: none; }
+  .btn.small { padding: 6px 9px; font-size: 11px; box-shadow: 2px 2px 0 var(--ink); }
+  .btn[disabled] { opacity: 0.35; cursor: not-allowed; }
+  .chip { font: 600 11px/1.2 var(--mono); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink); background: transparent; border: 1px dashed var(--faded); padding: 4px 8px; cursor: pointer; }
+  .chip:hover { border-style: solid; border-color: var(--ink); }
+  .chip[aria-pressed="true"] { background: var(--ink); color: var(--paper); border: 1px solid var(--ink); }
 
-  .chip {
-    font-family: var(--mono); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
-    color: var(--muted); background: transparent; border: 1px solid var(--rule); padding: 4px 9px; cursor: pointer; line-height: 1.2;
-  }
-  .chip:hover { color: var(--ink); border-color: var(--ink); }
-  .chip[aria-pressed="true"] { color: var(--black); background: var(--yellow); border-color: var(--yellow); }
+  /* --- top --------------------------------------------------------- */
+  .top { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 22px; padding: 18px 0; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--desk-ink); }
+  .brand .tab { background: var(--paper); color: var(--ink); font-weight: 800; padding: 3px 8px; letter-spacing: 0.04em; transform: rotate(-2deg); }
+  .brand .name { font-weight: 700; letter-spacing: 0.02em; }
+  .top nav { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-left: auto; }
+  .top nav a { color: var(--desk-dim); text-decoration: none; font-size: 12px; }
+  .top nav a:hover { color: var(--desk-ink); text-decoration: underline; }
 
-  /* --- hero --------------------------------------------------------- */
-  .hero {
-    position: relative; margin-top: 0; border: 1px solid var(--ink);
-    display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 28px; padding: 30px;
-    background-image:
-      linear-gradient(rgba(255,255,255,0.045) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,0.045) 1px, transparent 1px);
-    background-size: 32px 32px;
-  }
-  .hero-copy { align-self: center; }
-  .hero h1 { margin-bottom: 22px; }
-  .thesis { color: #D6D6D6; font-size: 16px; }
-  .thesis strong { color: var(--ink); }
-  .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 22px; }
+  /* --- hero -------------------------------------------------------- */
+  .hero { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: 44px; align-items: start; padding: 26px 0 10px; }
+  .kicker { font-size: 12px; color: var(--desk-dim); letter-spacing: 0.06em; margin: 0 0 20px; display: flex; gap: 10px; align-items: center; }
+  .rec { width: 9px; height: 9px; border-radius: 50%; background: #5a534a; flex: none; }
+  .live .rec { background: #FF4D5E; box-shadow: 0 0 0 4px rgba(255,77,94,0.18); animation: rec 1.4s steps(2, end) infinite; }
+  @keyframes rec { 50% { opacity: 0.3; } }
+  .hero h1 { font-size: clamp(40px, 7.4vw, 84px); line-height: 0.92; letter-spacing: -0.03em; }
+  .hero h1 .out { display: block; color: var(--paper); -webkit-text-stroke: 0; }
+  .hero h1 .in { display: block; color: transparent; -webkit-text-stroke: 1.5px var(--paper); }
+  .hero .lede { font-size: 15px; color: #D9D1C1; margin-top: 26px; }
+  .hero .lede b { color: var(--paper); background: linear-gradient(transparent 62%, rgba(184,18,46,0.55) 62%); }
+  .hero .actions { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 24px; }
+  .hero .fine { font-size: 12px; color: var(--desk-dim); margin-top: 18px; }
 
-  .console { border: 1px solid #1f2a36; background: #05080C; display: flex; flex-direction: column; min-width: 0; }
-  .fh { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 10px 12px; border-bottom: 1px solid #1f2a36; font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
-  .fh .t { color: var(--ink); font-weight: 600; letter-spacing: 0.14em; }
-  .fh .right { margin-left: auto; }
-  .fh b { color: var(--green); font-weight: 500; }
-  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; padding: 10px 12px; }
-  .tile { border: 1px solid #1f2a36; padding: 7px 8px 4px; font-family: var(--mono); font-size: 10px; min-width: 0; }
-  .tile .row { display: flex; justify-content: space-between; gap: 6px; letter-spacing: 0.04em; }
-  .tile .pair { color: var(--ink); font-weight: 600; }
-  .tile svg { display: block; width: 100%; height: 30px; margin-top: 4px; }
-  .tile polyline { fill: none; stroke-width: 1.3; vector-effect: non-scaling-stroke; }
-  .tile .up polyline, .tile polyline.up { stroke: var(--green); }
-  .tile polyline.down { stroke: var(--red); }
-  .feed { list-style: none; margin: 0; padding: 4px 12px 10px; font-family: var(--mono); font-size: 10.5px; line-height: 1.5; flex: 1; min-height: 190px; }
-  .feed li { display: grid; grid-template-columns: 3.6em 9.5em minmax(0, 1fr); gap: 8px; padding: 3px 0; border-top: 1px dashed #1a232d; }
-  .feed li:first-child { border-top: 0; }
-  .feed .who { color: var(--yellow); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: uppercase; }
-  .feed .what { overflow-wrap: anywhere; color: #CFCFCF; }
-  .feed .refused .what, .feed .stopped .what { color: var(--red); }
-  .feed .filled .what { color: var(--green); }
-  .ft { padding: 9px 12px; border-top: 1px solid #1f2a36; font-family: var(--mono); font-size: 11px; color: var(--green); }
-  .nojs { font-family: var(--mono); font-size: 12px; color: var(--muted); padding: 14px 12px; margin: 0; }
+  .roll .paper { padding-left: 18px; padding-right: 18px; }
+  .quotes { list-style: none; margin: 0; padding: 0; font-size: 12px; }
+  .quotes li { display: grid; grid-template-columns: 5.2em minmax(0,1fr) 5.6em 4.4em; gap: 8px; align-items: center; padding: 2px 0; }
+  .quotes .pair { font-weight: 800; }
+  .quotes .px { text-align: right; }
+  .quotes .chg { text-align: right; }
+  .quotes svg { width: 100%; height: 16px; display: block; }
+  .quotes polyline { fill: none; stroke: var(--ink); stroke-width: 1.2; vector-effect: non-scaling-stroke; }
+  .printed { list-style: none; margin: 0; padding: 0; font-size: 11.5px; min-height: 210px; }
+  .printed li { padding: 4px 0; border-bottom: 1px dotted rgba(28,26,23,0.25); overflow-wrap: anywhere; }
+  .printed li:first-child { animation: feed 0.35s ease-out; }
+  @keyframes feed { from { transform: translateY(-6px); opacity: 0; } }
+  .printed .t { color: var(--faded); margin-right: 6px; }
+  .printed .who { font-weight: 800; text-transform: uppercase; margin-right: 6px; }
+  .printed .refused .what, .printed .stopped .what { color: var(--stamp); }
+  .nojs { font-size: 12px; color: var(--faded); margin: 0; }
 
-  /* --- rack --------------------------------------------------------- */
-  .rack { display: grid; grid-template-columns: minmax(0, 1fr) 220px; gap: 22px; margin-top: 25px; align-items: stretch; }
-  .strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); border: 1px solid var(--ink); margin: 0; }
-  .strip div { padding: 10px 11px; border-left: 1px solid var(--ink); min-width: 0; }
-  .strip div:first-child { border-left: 0; }
-  .strip dt { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-  .strip dd { margin: 4px 0 0; font-family: var(--mono); font-size: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .pulse { border: 1px solid var(--rule); padding: 10px 11px 8px; display: flex; flex-direction: column; justify-content: flex-end; }
-  .bars { display: flex; align-items: flex-end; gap: 2px; height: 34px; }
-  .bars i { flex: 1; background: var(--rule); min-height: 2px; }
-  .bars i.hot { background: var(--red); }
-  .bars i.fill { background: var(--green); }
-  .lbl { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-top: 6px; }
+  /* --- z report ---------------------------------------------------- */
+  .zrep { margin-top: 36px; }
+  .zrep .paper { display: grid; grid-template-columns: 190px minmax(0,1fr) 230px; gap: 26px; align-items: center; padding-left: 26px; padding-right: 26px; }
+  .zrep .head { text-align: left; }
+  .totals { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 4px 26px; margin: 0; font-size: 13px; }
+  .totals div { display: flex; gap: 8px; align-items: baseline; }
+  .totals div::after { content: ""; order: 1; flex: 1; border-bottom: 2px dotted rgba(28,26,23,0.3); transform: translateY(-4px); }
+  .totals dt { color: var(--faded); text-transform: uppercase; font-size: 11px; letter-spacing: 0.06em; }
+  .totals dd { margin: 0; order: 2; font-weight: 800; }
+  .bars { display: flex; align-items: flex-end; gap: 2px; height: 38px; }
+  .bars i { flex: 1; background: rgba(28,26,23,0.25); min-height: 2px; }
+  .bars i.fill { background: var(--ink); }
+  .bars i.hot { background: var(--stamp); }
+  .bars-lbl { font-size: 10px; color: var(--faded); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px; display: block; }
 
-  /* --- panels ------------------------------------------------------- */
-  .panel { position: relative; border: 1px solid var(--rule); padding: 15px; }
-  .panel > header { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; padding-bottom: 9px; border-bottom: 1px solid var(--rule); }
-  .panel h3.label { font-family: var(--mono); font-weight: 400; font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--yellow); }
-  .panel .meta { font-family: var(--mono); font-size: 10px; letter-spacing: 0.06em; color: var(--muted); margin-left: auto; }
-  .br { position: absolute; width: 9px; height: 9px; border-color: var(--ink); border-style: solid; border-width: 0; }
-  .br.tl { top: -1px; left: -1px; border-top-width: 1px; border-left-width: 1px; }
-  .br.tr { top: -1px; right: -1px; border-top-width: 1px; border-right-width: 1px; }
-  .br.bl { bottom: -1px; left: -1px; border-bottom-width: 1px; border-left-width: 1px; }
-  .br.bk { bottom: -1px; right: -1px; border-bottom-width: 1px; border-right-width: 1px; }
+  /* --- sections ---------------------------------------------------- */
+  .sec { margin-top: 64px; }
+  .sechead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 18px; margin-bottom: 22px; border-bottom: 2px dashed rgba(237,230,216,0.22); padding-bottom: 12px; }
+  .sechead h2 { font-size: clamp(24px, 3.4vw, 34px); color: var(--paper); letter-spacing: -0.01em; }
+  .sechead .n { color: var(--stamp); font-weight: 800; }
+  .sechead .meta { color: var(--desk-dim); font-size: 12px; margin-left: auto; }
 
-  .lead { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 22px; align-items: center; }
-  .lead-mark { text-align: center; font-family: var(--mono); }
-  .lead-mark .cv { display: block; font-size: 30px; line-height: 1; }
-  .lead-mark small { font-size: 9px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
-  .lead-name { font-size: 26px; font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
-  .lead-copy { margin: 4px 0 6px; }
-  .lead-who { font-family: var(--mono); font-size: 11px; color: var(--muted); margin: 0; }
+  .leader .paper { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 18px; align-items: center; padding-left: 26px; padding-right: 26px; }
+  .leader .name { font-size: clamp(22px, 3vw, 30px); font-weight: 800; text-transform: uppercase; line-height: 1.1; }
+  .leader .pct { font-size: 34px; font-weight: 800; line-height: 1; }
+  .leader p { margin: 6px 0 0; }
 
-  /* --- bot list ----------------------------------------------------- */
-  .feedhead { display: flex; align-items: baseline; justify-content: space-between; gap: 6px 16px; flex-wrap: wrap; padding: 16px 0 14px; border-top: 1px solid var(--ink); margin-top: 25px; }
-  .feedmeta { font-family: var(--mono); font-size: 11px; color: var(--muted); }
-  ol.bots { list-style: none; margin: 0; padding: 0; }
-  ol.bots li { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 4px 10px; padding: 13px 0; border-top: 1px solid var(--rule); align-items: center; }
-  ol.bots li:first-child { border-top: 0; }
-  .rank { font-family: var(--mono); font-size: 11px; color: var(--muted); align-self: start; padding-top: 4px; }
-  .botname { background: none; border: 0; padding: 0; color: var(--ink); font: 700 16px/1.2 var(--sans); letter-spacing: 0.03em; text-transform: uppercase; cursor: pointer; text-align: left; }
-  .botname:hover { color: var(--green); }
-  .tag { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; border: 1px solid var(--rule); color: var(--muted); padding: 1px 6px; margin-left: 8px; vertical-align: 2px; }
-  .tag.spot { border-color: var(--amber); color: var(--amber); }
-  .tag.mine { border-color: var(--violet); color: #B38CFF; }
-  .tag.halt { border-color: var(--red); color: var(--red); }
-  .pnl { font-family: var(--mono); font-size: 15px; text-align: right; align-self: start; }
-  .meter { display: flex; gap: 3px; margin: 7px 0 6px; }
-  .meter i { width: 21px; height: 4px; background: #2b2b2b; }
-  .meter.up i.on { background: var(--green); }
-  .meter.down i.on { background: var(--red); }
-  .botline { grid-column: 2 / -1; font-family: var(--mono); font-size: 11px; color: var(--muted); margin: 0; max-width: none; overflow-wrap: anywhere; }
-  .botline .last-refused { color: var(--red); }
-  .botline .last-filled { color: var(--green); }
+  .bots { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 26px 22px; align-items: start; }
+  .bots > li:nth-child(odd) .receipt { transform: rotate(-0.6deg); }
+  .bots > li:nth-child(even) .receipt { transform: rotate(0.5deg); }
+  .bots .paper { font-size: 12px; }
+  .bots .no { display: flex; justify-content: space-between; font-size: 11px; color: var(--faded); text-transform: uppercase; letter-spacing: 0.06em; }
+  .bots .botname { display: block; width: 100%; background: none; border: 0; padding: 0; margin: 6px 0 2px; text-align: left; cursor: pointer; font: 800 17px/1.15 var(--mono); color: var(--ink); text-transform: uppercase; }
+  .bots .botname:hover { text-decoration: underline; }
+  .bots .pct { font-size: 26px; font-weight: 800; line-height: 1.1; }
+  .bots .meter { font-size: 12px; letter-spacing: 1px; }
+  .bots .last { margin-top: 8px; font-size: 11px; overflow-wrap: anywhere; min-height: 3.2em; }
+  .bots .last.refused, .bots .last.stopped { color: var(--stamp); }
+  .bots .tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .bots .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; }
 
-  /* --- desk --------------------------------------------------------- */
-  .desk { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); border: 1px solid var(--ink); }
-  .desk > div { min-width: 0; }
-  .desk .side { border-left: 1px solid var(--ink); }
-  .desk .wide { grid-column: 1 / -1; border-top: 1px solid var(--ink); }
-  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 10px 12px; border-bottom: 1px solid var(--rule); font-family: var(--mono); font-size: 11px; }
-  .bar:last-child { border-bottom: 0; }
-  .bar .push { margin-left: auto; }
-  .bar .title { color: var(--yellow); letter-spacing: 0.14em; text-transform: uppercase; }
-  .desk svg.chart { display: block; width: 100%; height: 250px; border-bottom: 1px solid var(--rule); }
-  .chart .price { fill: none; stroke: var(--ink); stroke-width: 1.4; vector-effect: non-scaling-stroke; }
-  .chart .entry { stroke: var(--green); stroke-dasharray: 5 5; vector-effect: non-scaling-stroke; }
-  .chart .stop { stroke: var(--red); stroke-dasharray: 5 5; vector-effect: non-scaling-stroke; }
-  .chart .gridline { stroke: #161616; vector-effect: non-scaling-stroke; }
-  .chart .dot-filled { fill: var(--green); } .chart .dot-stopped { fill: var(--red); } .chart .dot-closed { fill: var(--ink); }
-  .chart-wrap { position: relative; }
-  .chart-wrap .watermark { position: absolute; left: 12px; top: 8px; font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); pointer-events: none; }
-  .desk label { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); }
-  .desk input[type="range"] { width: 90px; accent-color: var(--yellow); }
-  .desk input[type="number"] { width: 58px; font: inherit; color: var(--ink); background: var(--black); border: 1px solid var(--rule); padding: 3px 5px; }
-  .desk input[type="checkbox"] { accent-color: var(--green); width: 15px; height: 15px; }
-  .stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; background: var(--rule); border-bottom: 1px solid var(--rule); }
-  .stats div { background: var(--black); padding: 9px 12px; }
-  .stats dt { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-  .stats dd { margin: 2px 0 0; font-family: var(--mono); font-size: 16px; overflow-wrap: anywhere; }
-  .note { font-size: 13px; color: var(--muted); padding: 10px 12px; margin: 0; max-width: none; }
-  .note b { color: var(--ink); font-weight: 500; }
-  .status { font-family: var(--mono); font-size: 12px; padding: 10px 12px; margin: 0; min-height: 38px; max-width: none; border-bottom: 1px solid var(--rule); overflow-wrap: anywhere; }
-  .status.refused { color: var(--red); } .status.filled { color: var(--green); }
-  .log { list-style: none; margin: 0; padding: 4px 12px 12px; font-family: var(--mono); font-size: 11px; max-height: 260px; overflow-y: auto; }
-  .log li { display: grid; grid-template-columns: 4em 11em minmax(0, 1fr); gap: 8px; padding: 3px 0; border-top: 1px dashed #1c1c1c; }
-  .log .src { color: var(--muted); }
-  .log .refused .txt, .log .stopped .txt, .log .halted .txt { color: var(--red); }
-  .log .filled .txt { color: var(--green); }
+  /* --- desk -------------------------------------------------------- */
+  .deskgrid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 26px; align-items: start; }
+  .deskgrid .paper { padding-left: 18px; padding-right: 18px; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin: 0 0 10px; font-size: 12px; }
+  .row .push { margin-left: auto; }
+  .lbl { font-size: 11px; color: var(--faded); text-transform: uppercase; letter-spacing: 0.08em; }
+  .chart { display: block; width: 100%; height: 250px; background-image: linear-gradient(rgba(28,26,23,0.07) 1px, transparent 1px); background-size: 100% 25%; border-top: 2px solid var(--ink); border-bottom: 2px solid var(--ink); }
+  .chart .price { fill: none; stroke: var(--ink); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+  .chart .entry { stroke: var(--ink); stroke-dasharray: 6 5; vector-effect: non-scaling-stroke; }
+  .chart .stop { stroke: var(--stamp); stroke-dasharray: 6 5; stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+  .chart .dot-filled { fill: var(--paper); stroke: var(--ink); stroke-width: 2; }
+  .chart .dot-closed { fill: var(--ink); }
+  .chart .dot-stopped { fill: var(--stamp); }
+  .deskgrid label { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--faded); text-transform: uppercase; letter-spacing: 0.06em; }
+  .deskgrid input[type="range"] { width: 92px; accent-color: var(--ink); }
+  .deskgrid input[type="number"] { width: 60px; font: 700 13px var(--mono); color: var(--ink); background: transparent; border: 0; border-bottom: 2px solid var(--ink); padding: 2px 4px; }
+  .deskgrid input[type="checkbox"] { accent-color: var(--ink); width: 16px; height: 16px; }
+  .slip { position: relative; }
+  .slip .status { min-height: 3.4em; font-size: 12px; margin: 8px 0 0; overflow-wrap: anywhere; }
+  .slip .status.refused { color: var(--stamp); }
+  .lines { margin: 0; font-size: 12px; }
+  .lines div { display: flex; gap: 8px; align-items: baseline; padding: 1px 0; }
+  .lines div::after { content: ""; order: 1; flex: 1; border-bottom: 2px dotted rgba(28,26,23,0.3); transform: translateY(-4px); }
+  .lines dt { color: var(--faded); text-transform: uppercase; font-size: 11px; }
+  .lines dd { margin: 0; order: 2; font-weight: 700; text-align: right; }
+  .small-note { font-size: 11px; color: var(--faded); margin: 10px 0 0; }
+  .log { list-style: none; margin: 0; padding: 0; font-size: 11px; max-height: 300px; overflow-y: auto; }
+  .log li { display: grid; grid-template-columns: 4em 14em minmax(0,1fr); gap: 8px; padding: 3px 0; border-bottom: 1px dotted rgba(28,26,23,0.22); }
+  .log .src { color: var(--faded); }
   .log .txt { overflow-wrap: anywhere; }
+  .log .refused .txt, .log .stopped .txt, .log .halted .txt { color: var(--stamp); }
 
-  /* --- build -------------------------------------------------------- */
-  .app { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); border: 1px solid var(--ink); }
-  .app > .pane { min-width: 0; display: flex; flex-direction: column; }
-  .app > .pane + .pane { border-left: 1px solid var(--ink); }
-  .app .viewer { grid-column: 1 / -1; border-top: 1px solid var(--ink); border-left: 0 !important; }
-  .app pre, .app textarea {
-    margin: 0; padding: 12px; font: 12px/1.6 var(--code); color: var(--ink); background: var(--black);
-    border: 0; white-space: pre; overflow: auto; flex: 1; tab-size: 4;
-  }
-  .app textarea { resize: vertical; min-height: 330px; width: 100%; outline-offset: -2px; }
-  .app .viewer pre { max-height: 420px; color: #D8D8D8; }
-  .files { list-style: none; margin: 0; padding: 8px 0; flex: 1; font: 12px/1.6 var(--code); overflow-x: auto; }
-  .files button, .files .row { display: block; width: 100%; padding: 0 12px; margin: 0; font: inherit; text-align: left; white-space: pre; color: var(--ink); background: transparent; border: 0; }
+  /* --- build ------------------------------------------------------- */
+  .app { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 26px; align-items: stretch; }
+  .app .paper { height: 100%; display: flex; flex-direction: column; padding-left: 0; padding-right: 0; }
+  .app .bar { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; padding: 0 16px 10px; border-bottom: 2px dashed rgba(28,26,23,0.3); font-size: 12px; }
+  .app .bar .push { margin-left: auto; }
+  .app .title { font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+  .app pre, .app textarea { margin: 0; padding: 12px 16px; font: 12.5px/1.65 var(--code); color: var(--ink); background: transparent; border: 0; white-space: pre; overflow: auto; flex: 1; tab-size: 4; }
+  .app textarea { resize: vertical; min-height: 340px; width: 100%; outline-offset: -4px;
+    background-image: repeating-linear-gradient(transparent 0 calc(1.65em - 1px), rgba(28,26,23,0.08) calc(1.65em - 1px) 1.65em); background-position: 0 12px; background-attachment: local; }
+  .app .viewer { grid-column: 1 / -1; }
+  .app .viewer pre { max-height: 440px; }
+  .files { list-style: none; margin: 0; padding: 10px 0; flex: 1; font: 12.5px/1.65 var(--code); overflow-x: auto; }
+  .files button, .files .row { display: block; width: 100%; margin: 0; padding: 0 16px; font: inherit; text-align: left; white-space: pre; color: var(--ink); background: transparent; border: 0; }
   .files button { cursor: pointer; }
-  .files button:hover { color: var(--green); }
-  .files button[aria-current="true"] { background: #141414; color: var(--yellow); }
-  .files .glyph { color: #6F6F6F; }
-  .files .refusal { white-space: pre-wrap; overflow-wrap: anywhere; color: var(--red); }
-  .refusal { color: var(--red); }
-  .next { font: 12px/1.6 var(--code); color: var(--muted); margin: 10px 0 0; white-space: pre; overflow-x: auto; max-width: none; }
+  .files button:hover { background: var(--paper-2); }
+  .files button[aria-current="true"] { background: var(--ink); color: var(--paper); }
+  .files button[aria-current="true"] .glyph { color: var(--paper-2); }
+  .files .glyph { color: var(--faded); }
+  .files .refusal { white-space: pre-wrap; overflow-wrap: anywhere; }
+  .refusal { color: var(--stamp); }
+  .next { font: 12px/1.6 var(--code); color: var(--desk-dim); margin: 18px 0 0; white-space: pre; overflow-x: auto; max-width: none; }
 
-  .cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin-top: 22px; }
-  .cols > div { border-top: 1px solid var(--rule); padding-top: 12px; }
-  .cols h3 { font-family: var(--mono); font-size: 11px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--yellow); margin: 0 0 10px; }
-  .cols p, .cols li { font-size: 14px; color: #CFCFCF; }
-  .cols ul { margin: 0; padding-left: 18px; }
-  .cols li { margin: 0 0 6px; }
-
+  .pair2 { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 26px; margin-top: 30px; align-items: start; }
   .refusals { list-style: none; padding: 0; margin: 0; }
-  .refusals li { margin: 0 0 12px; }
-  .refusals .what { font-size: 13px; color: var(--muted); margin: 0 0 4px; }
-  .refusals code { display: block; font-size: 11px; color: var(--red); border-left: 2px solid var(--red); padding: 6px 9px; background: #0B0B0B; overflow-x: auto; white-space: pre; }
+  .refusals li { margin: 0 0 14px; }
+  .refusals .what { font-size: 12px; color: var(--faded); margin: 0 0 4px; }
+  .refusals code { display: block; color: var(--stamp); font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; border-left: 3px solid var(--stamp); padding: 4px 8px; }
   .refusals .btn { margin-top: 6px; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px dotted rgba(28,26,23,0.3); vertical-align: top; }
+  th { font-size: 10px; color: var(--faded); text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600; }
+  td:first-child { font-weight: 800; white-space: nowrap; }
+  .tablewrap { overflow-x: auto; }
 
-  .tablewrap { overflow-x: auto; border: 1px solid var(--rule); }
-  table { border-collapse: collapse; width: 100%; font-size: 13px; }
-  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid #262626; vertical-align: top; }
-  th { font-family: var(--mono); font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 400; }
-  tr:last-child td { border-bottom: 0; }
-  td:first-child { font-family: var(--mono); white-space: nowrap; color: var(--yellow); }
-  pre.block { font: 12px/1.6 var(--code); border: 1px solid var(--rule); padding: 12px; overflow-x: auto; margin: 0 0 12px; color: #D8D8D8; }
+  .how { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 26px; align-items: start; }
+  .how ul { margin: 0; padding: 0; list-style: none; font-size: 12.5px; }
+  .how li { padding: 7px 0 7px 22px; border-bottom: 1px dotted rgba(28,26,23,0.25); position: relative; }
+  .how li::before { content: "×"; position: absolute; left: 2px; font-weight: 800; }
+  .how .real li::before { content: "✓"; }
+  .how pre { font: 12px/1.6 var(--code); margin: 8px 0; white-space: pre; overflow-x: auto; }
 
-  /* --- token -------------------------------------------------------- */
-  .token { border: 1px solid var(--green); padding: 28px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: center; }
-  .token .eyebrow { color: var(--green); }
-  .token .line { margin-top: 14px; color: #D6D6D6; }
-  .ca-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); display: block; margin-bottom: 8px; }
-  .ca { display: block; border: 1px solid var(--ink); padding: 12px 14px; font-family: var(--mono); font-size: 14px; overflow-wrap: anywhere; }
-  .facts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 12px 0 0; border: 1px solid var(--rule); }
-  .facts div { padding: 8px 10px; border-left: 1px solid var(--rule); min-width: 0; }
-  .facts div:first-child { border-left: 0; }
-  .facts dt { font-family: var(--mono); font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
-  .facts dd { margin: 2px 0 0; font-family: var(--mono); font-size: 12px; overflow-wrap: anywhere; }
-  .token .row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-  .warn { font-family: var(--mono); font-size: 11px; color: var(--muted); margin: 12px 0 0; }
+  /* --- coupon ------------------------------------------------------ */
+  .coupon { position: relative; border: 2px dashed var(--paper); padding: 26px; display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1.1fr); gap: 30px; align-items: center; }
+  .coupon .scissors { position: absolute; top: -13px; left: 26px; background: var(--desk); padding: 0 8px; color: var(--paper); font-size: 16px; }
+  .coupon h2 { font-size: clamp(48px, 8vw, 88px); color: var(--paper); letter-spacing: -0.04em; line-height: 0.9; }
+  .coupon .lede { color: #D9D1C1; margin-top: 14px; }
+  .ca-label { font-size: 11px; color: var(--faded); text-transform: uppercase; letter-spacing: 0.08em; }
+  .ca { display: block; font-size: 16px; font-weight: 800; margin: 4px 0 10px; overflow-wrap: anywhere; }
+  .coupon .links { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+  .warn { font-size: 11px; color: var(--faded); margin: 12px 0 0; }
 
-  footer.foot { border-top: 1px solid var(--ink); padding: 14px 0 40px; display: flex; flex-wrap: wrap; gap: 8px 20px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  footer { margin: 70px 0 0; padding: 0 0 50px; text-align: center; color: var(--desk-dim); font-size: 12px; }
+  footer .thanks { color: var(--paper); font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; margin: 0 auto 8px; }
+  footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; margin-top: 10px; }
+  footer p { margin: 0 auto; }
 
-  /* --- narrow ------------------------------------------------------- */
-  @media (max-width: 900px) {
-    .hero, .token { grid-template-columns: minmax(0, 1fr); padding: 20px; }
-    .rack { grid-template-columns: minmax(0, 1fr); }
-    .strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-    .strip div:nth-child(4) { border-left: 0; }
-    .strip div:nth-child(n+4) { border-top: 1px solid var(--ink); }
-    .desk, .app, .cols { grid-template-columns: minmax(0, 1fr); }
-    .desk .side { border-left: 0; border-top: 1px solid var(--ink); }
-    .app > .pane + .pane { border-left: 0; border-top: 1px solid var(--ink); }
-    .lead { grid-template-columns: auto minmax(0, 1fr); }
-    .lead .btn { grid-column: 1 / -1; justify-self: start; }
-    .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .facts div:nth-child(3) { border-left: 0; }
-    .facts div:nth-child(n+3) { border-top: 1px solid var(--rule); }
+  @media (max-width: 920px) {
+    .hero, .deskgrid, .app, .pair2, .how, .coupon, .leader .paper { grid-template-columns: minmax(0,1fr); }
+    .zrep .paper { grid-template-columns: minmax(0,1fr); gap: 14px; }
+    .totals { grid-template-columns: repeat(2, minmax(0,1fr)); }
+    .app .viewer { grid-column: auto; }
+    .hero { gap: 34px; }
   }
   @media (max-width: 520px) {
     .wrap { padding: 0 16px; }
-    .feed li { grid-template-columns: 3.4em minmax(0, 1fr); }
-    .feed .what { grid-column: 1 / -1; }
-    .feed li:nth-child(n+6) { display: none; }
-    .lead { grid-template-columns: minmax(0, 1fr); gap: 12px; }
-    .lead-mark { text-align: left; }
-    .log li { grid-template-columns: 4em minmax(0, 1fr); }
+    .totals { grid-template-columns: minmax(0,1fr); }
+    .quotes li { grid-template-columns: 5em minmax(0,1fr) 5.4em; }
+    .quotes .spark { display: none; }
+    .printed li:nth-child(n+7) { display: none; }
+    .log li { grid-template-columns: 4em minmax(0,1fr); }
     .log .txt { grid-column: 1 / -1; }
-    .desk svg.chart { height: 190px; }
+    .chart { height: 190px; }
+    .bigstamp { font-size: 20px; }
+    .bots { grid-template-columns: minmax(0,1fr); }
   }
   @media (prefers-reduced-motion: reduce) {
     html { scroll-behavior: auto; }
-    .live .led { animation: none; }
+    .live .rec, .printed li:first-child, .bigstamp.hit { animation: none; }
   }
 </style>
 </head>
@@ -327,12 +322,9 @@
 <a class="skip" href="#main">Skip to content</a>
 
 <div class="wrap">
-<header class="masthead">
-  <a class="brand" href="/">
-    <svg viewBox="0 0 28 28" aria-hidden="true"><rect x="0.5" y="0.5" width="27" height="27" fill="none" stroke="#fff"/><path d="M8 8l6 6-6 6" fill="none" stroke="#00FF85" stroke-width="2"/><path d="M15 20h6" stroke="#fff" stroke-width="2"/></svg>
-    <span class="wordmark">DE<i>GENERATOR</i></span>
-  </a>
-  <nav class="tabs" aria-label="Sections">
+<header class="top">
+  <a class="brand" href="/"><span class="tab">&gt;_</span><span class="name">degenerator</span></a>
+  <nav aria-label="Sections">
     <a href="#bots">bots</a>
     <a href="#desk">desk</a>
     <a href="#build">build</a>
@@ -345,89 +337,108 @@
 <main id="main">
 
 <section class="hero" aria-labelledby="hero-h">
-  <div class="hero-copy">
-    <p class="eyebrow" id="hero-eyebrow"><span class="led" aria-hidden="true"></span><span id="hero-status">paper · synthetic tape · no install</span></p>
-    <h1 id="hero-h">One spec in<br>one bot out</h1>
-    <p class="thesis">
-      Bots are trading on this page right now. Each one carries the
-      <strong>risk.py its spec generates</strong>, and that file refuses anything the
-      spec does not allow — the size, the leverage, the short a spot chain cannot
-      take. Watch them, take one over, or write a spec and put your own bot on
-      the tape.
+  <div>
+    <p class="kicker"><span class="rec" aria-hidden="true"></span><span id="hero-status">paper mode · synthetic tape · no install</span></p>
+    <h1 id="hero-h"><span class="in">One spec in.</span><span class="out">One bot out.</span></h1>
+    <p class="lede">
+      Bots are trading on this page right now and printing a receipt for every
+      decision. Each one carries <b>the risk.py its spec generates</b>, and that
+      file stamps <span class="stamp" style="transform:rotate(-3deg);background:var(--paper)">refused</span>
+      on anything the spec does not allow.
     </p>
-    <p class="thesis m">Nothing to download, no Python, no wallet. Nothing you do leaves this tab.</p>
+    <p class="lede">Watch them, take one over, or write a spec and put your own bot on the tape.</p>
     <div class="actions">
-      <a class="btn primary" href="#desk">take the wheel</a>
-      <a class="btn" href="#build">write your own bot</a>
+      <a class="btn red" href="#desk">take the wheel</a>
+      <a class="btn ghost" href="#build">write your own bot</a>
     </div>
+    <p class="fine">Nothing to download, no Python, no wallet. Nothing you do leaves this tab.</p>
   </div>
 
-  <div class="console" id="console">
-    <div class="fh"><span class="t">The tape</span><span id="tape-meta">· one market · every bot</span><span class="right" id="tape-state">synthetic</span></div>
-    <div class="tiles" id="tiles" hidden></div>
-    <ol class="feed" id="feed" aria-label="Latest decisions from every bot" hidden></ol>
-    <p class="nojs" id="console-nojs">The bots run in your browser with JavaScript. Without it, this page is the manual: the spec language, the refusals and the repository it writes are all below.</p>
-    <div class="ft" id="console-foot">synthetic prices · paper fills · risk.py decides</div>
+  <div class="receipt roll tilt-r" id="console">
+    <div class="paper">
+      <div class="head">
+        <div class="big">The tape</div>
+        <div class="small" id="tape-meta">one market · every bot</div>
+        <div class="small" id="tape-state">synthetic prices · paper fills</div>
+      </div>
+      <hr class="cut">
+      <ul class="quotes" id="tiles" hidden></ul>
+      <hr class="cut" id="tiles-cut" hidden>
+      <ol class="printed" id="feed" aria-label="Latest decisions from every bot" hidden></ol>
+      <p class="nojs" id="console-nojs">The bots run in your browser with JavaScript. Without it this page is the manual: the spec language, the refusals and the repository it writes are all below.</p>
+      <div class="barcode" aria-hidden="true"></div>
+      <div class="head"><div class="small" id="console-foot">risk.py decides · keep this receipt</div></div>
+    </div>
   </div>
 </section>
 
-<div class="rack" id="rack" hidden>
-  <dl class="strip">
-    <div><dt>Bots</dt><dd id="st-bots">0</dd></div>
-    <div><dt>Fills</dt><dd class="g" id="st-fills">0</dd></div>
-    <div><dt>Refused</dt><dd class="r" id="st-refused">0</dd></div>
-    <div><dt>Stops</dt><dd class="y" id="st-stops">0</dd></div>
-    <div><dt>Tick</dt><dd id="st-tick">0</dd></div>
-    <div><dt>Paper PnL</dt><dd id="st-pnl">+0.00</dd></div>
-  </dl>
-  <div class="pulse">
-    <div class="bars" id="pulse" role="img" aria-label="Decisions per tick, last 48 ticks"></div>
-    <span class="lbl">decisions per tick · 48 ticks</span>
-  </div>
-</div>
-
-<section class="panel" id="leader" hidden aria-labelledby="leader-h">
-  <span class="br tl"></span><span class="br tr"></span><span class="br bl"></span><span class="br bk"></span>
-  <header><h3 class="label" id="leader-h">Leading bot</h3><span class="meta" id="leader-meta">this session</span></header>
-  <div class="lead">
-    <div class="lead-mark"><span class="cv" id="leader-pnl">+0.00%</span><small>paper pnl</small></div>
+<div class="receipt zrep tilt-l" id="rack" hidden>
+  <div class="paper">
+    <div class="head">
+      <div class="big">Z-report</div>
+      <div class="small">session totals · every bot</div>
+    </div>
+    <dl class="totals">
+      <div><dt>bots</dt><dd id="st-bots">0</dd></div>
+      <div><dt>fills</dt><dd id="st-fills">0</dd></div>
+      <div><dt>refused</dt><dd class="neg" id="st-refused">0</dd></div>
+      <div><dt>stops hit</dt><dd id="st-stops">0</dd></div>
+      <div><dt>tick</dt><dd id="st-tick">0</dd></div>
+      <div><dt>paper pnl</dt><dd id="st-pnl">+0.00</dd></div>
+    </dl>
     <div>
-      <div class="lead-name" id="leader-name">—</div>
-      <p class="lead-copy" id="leader-copy"></p>
-      <p class="lead-who" id="leader-who"></p>
+      <div class="bars" id="pulse" role="img" aria-label="Decisions per tick, last 48 ticks"></div>
+      <span class="bars-lbl">decisions per tick · red = a refusal or a stop</span>
     </div>
-    <button class="btn" type="button" id="leader-take">take the wheel</button>
   </div>
-</section>
-
-<div id="bots">
-  <div class="feedhead">
-    <h2>Bots</h2>
-    <span class="feedmeta">same tape · same demo strategy · a different risk.py each</span>
-  </div>
-  <ol class="bots" id="bot-list" hidden></ol>
-  <p class="note" id="bots-nojs">Five example bots run here when JavaScript is on.</p>
 </div>
 
-<section id="desk" aria-labelledby="desk-h">
-  <div class="feedhead">
-    <h2 id="desk-h">The desk</h2>
-    <span class="feedmeta" id="desk-meta">take any bot over: trade it by hand, or leave the autopilot on</span>
+<section class="sec" id="bots" aria-labelledby="bots-h">
+  <div class="sechead">
+    <h2 id="bots-h"><span class="n">01</span> Bots</h2>
+    <span class="meta">same tape · same demo strategy · a different risk.py each</span>
   </div>
-  <div class="desk" id="desk-ui" hidden></div>
-  <p class="note" id="desk-nojs">The desk needs JavaScript: it runs the generated risk module in your browser. Everything it would tell you is in <code>src/risk.py</code> of any repository degenerator writes.</p>
+
+  <div class="receipt leader" id="leader" hidden>
+    <div class="paper">
+      <div>
+        <span class="stamp ink">leading</span> <span class="dim" id="leader-meta">this session</span>
+        <div class="name" id="leader-name">—</div>
+        <p id="leader-copy"></p>
+        <p class="dim" id="leader-who"></p>
+      </div>
+      <div style="text-align:right">
+        <div class="pct" id="leader-pnl">+0.00%</div>
+        <div class="dim" style="font-size:11px;margin-bottom:10px">paper pnl</div>
+        <button class="btn small" type="button" id="leader-take">take the wheel</button>
+      </div>
+    </div>
+  </div>
+
+  <ol class="bots" id="bot-list" hidden style="margin-top:34px"></ol>
+  <p class="nojs" id="bots-nojs" style="color:var(--desk-dim)">Five example bots run here when JavaScript is on.</p>
 </section>
 
-<section id="build" aria-labelledby="build-h">
-  <div class="feedhead">
-    <h2 id="build-h">Write your own bot</h2>
-    <span class="feedmeta">edit the spec · the repo rebuilds as you type · put it on the tape</span>
+<section class="sec" id="desk" aria-labelledby="desk-h">
+  <div class="sechead">
+    <h2 id="desk-h"><span class="n">02</span> The desk</h2>
+    <span class="meta" id="desk-meta">take any bot over: trade it by hand, or leave the autopilot on</span>
+  </div>
+  <div class="deskgrid" id="desk-ui" hidden></div>
+  <p class="nojs" id="desk-nojs" style="color:var(--desk-dim)">The desk needs JavaScript: it runs the generated risk module in your browser. Everything it would tell you is in <code>src/risk.py</code> of any repository degenerator writes.</p>
+</section>
+
+<section class="sec" id="build" aria-labelledby="build-h">
+  <div class="sechead">
+    <h2 id="build-h"><span class="n">03</span> Write your own bot</h2>
+    <span class="meta">edit the spec · the repo rebuilds as you type · put it on the tape</span>
   </div>
 
   <div class="app" id="app">
-    <div class="pane">
-      <div class="bar"><span class="title" id="spec-name">momentum.spec.md</span><span class="push" id="examples"></span></div>
-      <pre id="spec-source"># Momentum Degen
+    <div class="receipt tilt-l">
+      <div class="paper">
+        <div class="bar"><span class="title" id="spec-name">momentum.spec.md</span><span class="push" id="examples"></span></div>
+        <pre id="spec-source"># Momentum Degen
 
 venue: hyperliquid
 pairs: BTC, SOL, HYPE
@@ -441,10 +452,12 @@ rules:
 - long when the 20 period average crosses above the 50
 - close anything down 3%
 - flat before funding</pre>
+      </div>
     </div>
-    <div class="pane">
-      <div class="bar"><span class="title" id="tree-head">momentum-degen/</span><span class="push m" id="out-size"></span></div>
-      <pre id="tree">├── README.md
+    <div class="receipt tilt-r">
+      <div class="paper">
+        <div class="bar"><span class="title" id="tree-head">momentum-degen/</span><span class="push dim" id="out-size"></span></div>
+        <pre id="tree">├── README.md
 ├── .env.example
 ├── .gitignore
 ├── requirements.txt
@@ -464,133 +477,145 @@ rules:
 ├── tests/
 │   └── test_risk.py
 └── runs/</pre>
-    </div>
-    <div class="pane viewer" id="viewer" hidden>
-      <div class="bar">
-        <span class="title" id="viewer-name">src/risk.py</span>
-        <span class="push"></span>
-        <button class="btn small primary" type="button" id="launch">put it on the tape</button>
-        <button class="btn small" type="button" id="copy-file">copy file</button>
-        <button class="btn small" type="button" id="download">download zip</button>
       </div>
-      <pre id="viewer-body"></pre>
+    </div>
+    <div class="receipt viewer" id="viewer" hidden>
+      <div class="paper">
+        <div class="bar">
+          <span class="title" id="viewer-name">src/risk.py</span>
+          <span class="push"></span>
+          <button class="btn small red" type="button" id="launch">put it on the tape</button>
+          <button class="btn small" type="button" id="copy-file">copy file</button>
+          <button class="btn small" type="button" id="download">download zip</button>
+        </div>
+        <pre id="viewer-body"></pre>
+      </div>
     </div>
   </div>
   <p class="next" id="next" hidden></p>
 
-  <div class="cols">
-    <div>
-      <h3>Three ways a spec fails on purpose</h3>
-      <ul class="refusals">
-        <li>
-          <p class="what">A venue that does not exist.</p>
-          <code>degenerator: v.spec.md: unknown venue 'binance': choose one of hyperliquid, dydx, robinhood, paper</code>
-        </li>
-        <li>
-          <p class="what">A title with nothing in it, so there is no name to give the repo.</p>
-          <code>degenerator: t.spec.md:1: the title line is empty: write '# My Bot'</code>
-        </li>
-        <li>
-          <p class="what">No rules at all.</p>
-          <code>degenerator: r.spec.md: no rules: a bot with no rules is a random number generator</code>
-        </li>
-      </ul>
-    </div>
-    <div>
-      <h3>The spec language</h3>
-      <div class="tablewrap">
-        <table>
-          <thead><tr><th scope="col">key</th><th scope="col">default</th><th scope="col">notes</th></tr></thead>
-          <tbody>
-            <tr><td>venue</td><td>paper</td><td><code>hyperliquid</code>, <code>dydx</code>, <code>robinhood</code> or <code>paper</code></td></tr>
-            <tr><td>pairs</td><td>BTC</td><td>comma separated</td></tr>
-            <tr><td>timeframe</td><td>5m</td><td>copied into the strategy as a comment</td></tr>
-            <tr><td>max_position</td><td>0.05</td><td>share of equity per position, <code>%</code> accepted</td></tr>
-            <tr><td>stop_loss</td><td>0.03</td><td>per position, <code>%</code> accepted</td></tr>
-            <tr><td>leverage</td><td>1</td><td><code>3x</code> or <code>3</code>; above 1 is refused on robinhood</td></tr>
-            <tr><td>cash</td><td>1000</td><td>starting paper equity</td></tr>
-          </tbody>
-        </table>
+  <div class="pair2">
+    <div class="receipt tilt-r">
+      <div class="paper">
+        <div class="head"><div class="big">Refused on purpose</div><div class="small">three specs that never become a repo</div></div>
+        <hr class="cut">
+        <ul class="refusals">
+          <li>
+            <p class="what">A venue that does not exist.</p>
+            <code>degenerator: v.spec.md: unknown venue 'binance': choose one of hyperliquid, dydx, robinhood, paper</code>
+          </li>
+          <li>
+            <p class="what">A title with nothing in it, so there is no name to give the repo.</p>
+            <code>degenerator: t.spec.md:1: the title line is empty: write '# My Bot'</code>
+          </li>
+          <li>
+            <p class="what">No rules at all.</p>
+            <code>degenerator: r.spec.md: no rules: a bot with no rules is a random number generator</code>
+          </li>
+        </ul>
       </div>
-      <p class="note" style="padding:10px 0 0">Rules are copied into <code>strategy.py</code> as comments, verbatim. Unknown keys are kept in the README.</p>
+    </div>
+    <div class="receipt tilt-l">
+      <div class="paper">
+        <div class="head"><div class="big">The spec language</div><div class="small">a title, key: value lines, a rules list</div></div>
+        <hr class="cut">
+        <div class="tablewrap">
+          <table>
+            <thead><tr><th scope="col">key</th><th scope="col">default</th><th scope="col">notes</th></tr></thead>
+            <tbody>
+              <tr><td>venue</td><td>paper</td><td>hyperliquid, dydx, robinhood or paper</td></tr>
+              <tr><td>pairs</td><td>BTC</td><td>comma separated</td></tr>
+              <tr><td>timeframe</td><td>5m</td><td>copied into the strategy as a comment</td></tr>
+              <tr><td>max_position</td><td>0.05</td><td>share of equity per position, % accepted</td></tr>
+              <tr><td>stop_loss</td><td>0.03</td><td>per position, % accepted</td></tr>
+              <tr><td>leverage</td><td>1</td><td>3x or 3; above 1 is refused on robinhood</td></tr>
+              <tr><td>cash</td><td>1000</td><td>starting paper equity</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p class="small-note">Rules are copied into strategy.py as comments, verbatim. Unknown keys are kept in the README.</p>
+      </div>
     </div>
   </div>
 </section>
 
-<section id="how" aria-labelledby="how-h">
-  <div class="feedhead">
-    <h2 id="how-h">How it works</h2>
-    <span class="feedmeta">what is real on this page, and what is not</span>
+<section class="sec" id="how" aria-labelledby="how-h">
+  <div class="sechead">
+    <h2 id="how-h"><span class="n">04</span> What is real here</h2>
+    <span class="meta">itemised, like everything else on this page</span>
   </div>
-  <div class="cols">
-    <div>
-      <h3>Real</h3>
-      <ul>
-        <li>The generator. The CLI's parser and templates run in this tab and are checked against the Python byte for byte on every push. The zip is the repository the CLI writes.</li>
-        <li>Every refusal. Each bot carries a port of the <code>risk.py</code> its spec generates, and CI runs the same orders through both and fails on a single differing word.</li>
-        <li>The stops. They close positions at the price your spec sets, and the log credits <code>risk.py</code>.</li>
-      </ul>
+  <div class="how">
+    <div class="receipt tilt-l">
+      <div class="paper real">
+        <div class="head"><div class="big">Real</div></div>
+        <hr class="cut">
+        <ul>
+          <li>The generator. The CLI's parser and templates run in this tab and are checked against the Python byte for byte on every push. The zip is the repository the CLI writes.</li>
+          <li>Every refusal. Each bot carries a port of the risk.py its spec generates, and CI runs the same orders through both and fails on a single differing word.</li>
+          <li>The stops. They close positions at the price your spec sets, and the receipt credits risk.py.</li>
+          <li>Venues: hyperliquid and dydx are perps; robinhood is spot only, so leverage is refused in the spec, a short is refused by risk.py, and fills are marked model=swap.</li>
+        </ul>
+      </div>
     </div>
-    <div>
-      <h3>Not real</h3>
-      <ul>
-        <li>The prices. One seeded random walk for every bot, starting where the generated paper adapter quotes. Not a record of any market.</li>
-        <li>The strategy. Every bot runs the same demo: an 8 over 21 moving-average cross that asks for 10% of equity. degenerator never turns rule text into code, so neither does this page.</li>
-        <li>The money. Paper fills, no network, no wallet. The generated adapters refuse to start with <code>live=True</code>.</li>
-      </ul>
-    </div>
-    <div>
-      <h3>Venues</h3>
-      <ul>
-        <li><b>hyperliquid</b>, <b>dydx</b> — perps, paper-mode adapters.</li>
-        <li><b>robinhood</b> — Robinhood Chain, an Ethereum layer-2. Spot only: leverage above 1 is refused in the spec, a short is refused by <code>risk.py</code>, fills are marked <code>model=swap</code>, and <code>.env.example</code> asks for an RPC URL and nothing else.</li>
-        <li><b>paper</b> — no venue at all, the default.</li>
-      </ul>
-    </div>
-    <div>
-      <h3>For developers</h3>
-      <pre class="block">pip install -e .
-degenerator plan examples/momentum.spec.md
-degenerator new  examples/momentum.spec.md</pre>
-      <p class="note" style="padding:0">Standard library only, in the tool and in the code it writes. Every run leaves a JSON receipt. Source on <a href="https://github.com/0xbobaaa/degenerator">GitHub</a>, MIT.</p>
+    <div class="receipt tilt-r">
+      <div class="paper">
+        <div class="head"><div class="big">Not real</div></div>
+        <hr class="cut">
+        <ul>
+          <li>The prices. One seeded random walk for every bot, starting where the generated paper adapter quotes. Not a record of any market.</li>
+          <li>The strategy. Every bot runs the same demo: an 8 over 21 moving-average cross that asks for 10% of equity. degenerator never turns rule text into code, so neither does this page.</li>
+          <li>The money. Paper fills, no network, no wallet. Generated adapters refuse to start with live=True.</li>
+        </ul>
+        <hr class="cut">
+        <div class="head"><div class="small">for developers</div></div>
+        <pre>pip install -e .
+degenerator new examples/momentum.spec.md</pre>
+        <p class="small-note">Standard library only. Every run leaves a JSON receipt. <a href="https://github.com/0xbobaaa/degenerator">Source on GitHub</a>, MIT.</p>
+      </div>
     </div>
   </div>
 </section>
 
-<section class="token" id="token" aria-labelledby="token-h">
-  <div>
-    <p class="eyebrow"><span class="led" aria-hidden="true"></span>$DGEN · the token · Robinhood Chain</p>
-    <h2 id="token-h">$DGEN</h2>
-    <p class="line">degenerator writes bots for Robinhood Chain, so the ticker lives there. The tool is MIT and stays MIT — the token is not a licence, a key or a gate.</p>
-  </div>
-  <div>
-    <span class="ca-label">Contract address</span>
-    <code class="ca" id="ca-value">TBA</code>
-    <div class="row">
-      <button class="btn" type="button" data-copy-target="ca-value" disabled>copy CA</button>
-      <a class="btn" href="https://x.com/0xbobaaa">X</a>
-      <a class="btn" href="https://t.me/bobaonee">Telegram</a>
-      <a class="btn" href="https://github.com/0xbobaaa/degenerator">GitHub</a>
+<section class="sec" id="token" aria-labelledby="token-h">
+  <div class="coupon">
+    <span class="scissors" aria-hidden="true">✂</span>
+    <div>
+      <h2 id="token-h">$DGEN</h2>
+      <p class="lede">degenerator writes bots for Robinhood Chain, so the ticker lives there. The tool is MIT and stays MIT — the token is not a licence, a key or a gate.</p>
     </div>
-    <dl class="facts">
-      <div><dt>ticker</dt><dd>$DGEN</dd></div>
-      <div><dt>chain</dt><dd>Robinhood Chain</dd></div>
-      <div><dt>chain id</dt><dd>4663</dd></div>
-      <div><dt>chart</dt><dd>none yet</dd></div>
-    </dl>
-    <p class="warn">When there is an address it will be published here first. Verify it on this page before you buy anything. There will be copies.</p>
+    <div class="receipt">
+      <div class="paper">
+        <span class="ca-label">contract address</span>
+        <code class="ca" id="ca-value">TBA</code>
+        <dl class="lines">
+          <div><dt>ticker</dt><dd>$DGEN</dd></div>
+          <div><dt>chain</dt><dd>Robinhood Chain</dd></div>
+          <div><dt>chain id</dt><dd>4663</dd></div>
+          <div><dt>chart</dt><dd>none yet</dd></div>
+        </dl>
+        <div class="links">
+          <button class="btn small" type="button" data-copy-target="ca-value" disabled>copy CA</button>
+          <a class="btn small" href="https://x.com/0xbobaaa">X</a>
+          <a class="btn small" href="https://t.me/bobaonee">Telegram</a>
+          <a class="btn small" href="https://github.com/0xbobaaa/degenerator">GitHub</a>
+        </div>
+        <p class="warn">When there is an address it is published here first. Verify it on this page before you buy anything. There will be copies.</p>
+      </div>
+    </div>
   </div>
 </section>
 
 </main>
 
-<footer class="foot">
-  <span>degenerator · paper only · nothing here is financial advice</span>
-  <a href="https://github.com/0xbobaaa/degenerator">source</a>
-  <a href="https://github.com/0xbobaaa/degenerator/issues">issues</a>
-  <a href="https://x.com/0xbobaaa">@0xbobaaa</a>
-  <a href="https://t.me/bobaonee">telegram</a>
-  <span>MIT</span>
+<footer>
+  <p class="thanks">Thank you for not trading real money</p>
+  <p>degenerator · paper only · nothing here is financial advice · MIT</p>
+  <nav aria-label="Elsewhere">
+    <a href="https://github.com/0xbobaaa/degenerator">source</a>
+    <a href="https://github.com/0xbobaaa/degenerator/issues">issues</a>
+    <a href="https://x.com/0xbobaaa">@0xbobaaa</a>
+    <a href="https://t.me/bobaonee">telegram</a>
+  </nav>
 </footer>
 </div>
 

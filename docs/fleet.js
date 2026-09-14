@@ -165,7 +165,7 @@
     state.focus = bot;
     if (bot.spec.pairs.indexOf(state.pair) === -1) state.pair = bot.spec.pairs[0];
     if (node.leverage) node.leverage.value = String(bot.spec.leverage.v);
-    if (node.status) { node.status.textContent = ""; node.status.className = "status"; }
+    if (node.status) { node.status.textContent = ""; node.status.className = "status"; node.stamp.hidden = true; }
     buildDeskChips();
   }
 
@@ -187,47 +187,66 @@
       by: "you",
     });
     collect(bot);
-    node.status.textContent = entry.source + ": " + entry.text;
-    node.status.className = "status " + entry.kind;
+    slip(entry.kind === "refused" ? "refused" : "filled", entry.source + ": " + entry.text, entry.kind);
     paint();
+  }
+
+  // The order slip gets a rubber stamp: red for a refusal, green for a fill.
+  function slip(word, text, kind) {
+    node.status.textContent = text;
+    node.status.className = "status " + (kind || "");
+    node.stamp.textContent = word;
+    node.stamp.className = "bigstamp" + (word === "refused" ? "" : word === "closed" ? " ink" : " ok");
+    node.stamp.hidden = false;
+    void node.stamp.offsetWidth;
+    node.stamp.className += " hit";
   }
 
   /* ---- layout -------------------------------------------------------- */
 
+  function sheet(className) {
+    var receipt = make("div", "receipt " + (className || ""));
+    var paper = make("div", "paper");
+    receipt.appendChild(paper);
+    return { receipt: receipt, paper: paper };
+  }
+
   function buildDesk() {
     var ui = $("desk-ui");
 
-    var main = make("div");
-    var head = make("div", "bar");
-    node.botChips = make("span");
-    node.botChips.style.display = "flex";
-    node.botChips.style.flexWrap = "wrap";
-    node.botChips.style.gap = "6px";
+    var main = sheet("tilt-l");
+    var head = make("div", "row");
+    head.appendChild(make("span", "lbl", "bot"));
+    node.botChips = make("span", "row");
+    node.botChips.style.margin = "0";
     head.appendChild(node.botChips);
-    main.appendChild(head);
+    main.paper.appendChild(head);
 
-    var pairs = make("div", "bar");
-    node.pairChips = make("span");
-    node.pairChips.style.display = "flex";
-    node.pairChips.style.gap = "6px";
+    var pairs = make("div", "row");
+    pairs.appendChild(make("span", "lbl", "pair"));
+    node.pairChips = make("span", "row");
+    node.pairChips.style.margin = "0";
     pairs.appendChild(node.pairChips);
     node.price = make("span", "push");
+    node.price.style.fontWeight = "800";
     pairs.appendChild(node.price);
-    main.appendChild(pairs);
+    main.paper.appendChild(pairs);
 
-    var wrap = make("div", "chart-wrap");
     node.chart = svg("svg", { viewBox: "0 0 600 250", preserveAspectRatio: "none", class: "chart", role: "img", "aria-label": "Synthetic price of the selected pair" });
-    wrap.appendChild(node.chart);
-    wrap.appendChild(make("span", "watermark", "synthetic"));
-    main.appendChild(wrap);
+    main.paper.appendChild(node.chart);
 
-    var controls = make("div", "bar");
-    node.run = button("pause", "btn small primary", function () { if (state.timer) stop(); else run(); });
+    var legend = make("div", "row");
+    legend.style.margin = "6px 0 12px";
+    legend.appendChild(make("span", "dim", "synthetic · ○ fill · ● close · "));
+    legend.appendChild(make("span", "neg", "● stop  - - stop line"));
+    main.paper.appendChild(legend);
+
+    var controls = make("div", "row");
+    node.run = button("pause", "btn small", function () { if (state.timer) stop(); else run(); });
     controls.appendChild(node.run);
     controls.appendChild(button("step", "btn small", function () { stop(); advance(); paint(); }));
-    node.speed = make("span");
-    node.speed.style.display = "inline-flex";
-    node.speed.style.gap = "4px";
+    node.speed = make("span", "row");
+    node.speed.style.margin = "0";
     SPEEDS.forEach(function (speed, i) {
       var chip = button(speed[0], "chip", function () {
         state.interval = speed[1];
@@ -238,29 +257,38 @@
       node.speed.appendChild(chip);
     });
     controls.appendChild(node.speed);
+    main.paper.appendChild(controls);
+
+    var market = make("div", "row");
     node.volatility = range(0, 20, 1, 6, function () { state.tape.volatility = Number(node.volatility.value) / 1000; });
-    controls.appendChild(labelled("volatility", node.volatility));
+    market.appendChild(labelled("volatility", node.volatility));
     node.trend = range(-20, 20, 1, 0, function () { state.tape.trend = Number(node.trend.value) / 20000; });
-    controls.appendChild(labelled("trend", node.trend));
-    controls.appendChild(button("shock -10%", "btn small", function () {
+    market.appendChild(labelled("trend", node.trend));
+    market.appendChild(button("shock -10%", "btn small", function () {
       S.jolt(state.tape, state.pair, -0.1);
       note("a -10.0% jump is queued on " + state.pair + " for the next tick, for every bot that holds it");
       paint();
     }));
-    controls.appendChild(button("new market", "btn small", function () { boot(state.seed + 1); }));
-    node.seed = make("span", "m push");
-    controls.appendChild(node.seed);
-    main.appendChild(controls);
-    ui.appendChild(main);
+    market.appendChild(button("new market", "btn small", function () { boot(state.seed + 1); }));
+    node.seed = make("span", "dim push");
+    market.appendChild(node.seed);
+    main.paper.appendChild(market);
+    ui.appendChild(main.receipt);
 
-    var side = make("div", "side");
-    var ticketHead = make("div", "bar");
-    ticketHead.appendChild(make("span", "title", "ticket"));
-    node.caps = make("span", "push m");
-    ticketHead.appendChild(node.caps);
-    side.appendChild(ticketHead);
+    var side = sheet("tilt-r slip");
+    side.paper.classList.add("slip");
+    node.stamp = make("span", "bigstamp");
+    node.stamp.hidden = true;
+    node.stamp.setAttribute("aria-hidden", "true");
+    side.paper.appendChild(node.stamp);
+    var slipHead = make("div", "head");
+    slipHead.appendChild(make("div", "big", "Order slip"));
+    node.caps = make("div", "small");
+    slipHead.appendChild(node.caps);
+    side.paper.appendChild(slipHead);
+    side.paper.appendChild(make("hr", "cut"));
 
-    var ticket = make("div", "bar");
+    var ticket = make("div", "row");
     node.long = button("long", "btn small", function () { order("long"); });
     node.short = button("short", "btn small", function () { order("short"); });
     node.close = button("close", "btn small", function () {
@@ -268,52 +296,51 @@
       if (bot.desk.positions[state.pair]) {
         var entry = S.close(bot.desk, state.pair, "you");
         collect(bot);
-        node.status.textContent = "you: " + entry.text;
-        node.status.className = "status";
+        slip("closed", "you: " + entry.text, "closed");
         paint();
       }
     });
     ticket.appendChild(node.long);
     ticket.appendChild(node.short);
     ticket.appendChild(node.close);
-    side.appendChild(ticket);
+    side.paper.appendChild(ticket);
 
-    var sizing = make("div", "bar");
+    var sizing = make("div", "row");
     node.size = range(10, 300, 5, 100, paint);
     sizing.appendChild(labelled("size", node.size));
     node.leverage = document.createElement("input");
     node.leverage.type = "number";
     node.leverage.min = "1";
     node.leverage.step = "1";
-    sizing.appendChild(labelled("leverage", node.leverage));
+    sizing.appendChild(labelled("lev", node.leverage));
     node.auto = document.createElement("input");
     node.auto.type = "checkbox";
     node.auto.addEventListener("change", function () { state.focus.desk.autopilot = node.auto.checked; paint(); });
     sizing.appendChild(labelled("autopilot", node.auto));
-    side.appendChild(sizing);
+    side.paper.appendChild(sizing);
 
     node.status = make("p", "status");
     node.status.setAttribute("aria-live", "polite");
-    side.appendChild(node.status);
+    side.paper.appendChild(node.status);
+    side.paper.appendChild(make("hr", "cut"));
+    node.stats = make("dl", "lines");
+    side.paper.appendChild(node.stats);
+    node.ticketNote = make("p", "small-note");
+    side.paper.appendChild(node.ticketNote);
+    ui.appendChild(side.receipt);
 
-    node.stats = make("dl", "stats");
-    side.appendChild(node.stats);
-    node.ticketNote = make("p", "note");
-    side.appendChild(node.ticketNote);
-    ui.appendChild(side);
-
-    var logPanel = make("div", "wide");
-    var logHead = make("div", "bar");
-    logHead.appendChild(make("span", "title", "decisions"));
-    node.logMeta = make("span", "m");
+    var journal = sheet();
+    journal.receipt.style.gridColumn = "1 / -1";
+    var logHead = make("div", "row");
+    logHead.appendChild(make("span", "lbl", "receipts"));
+    node.logMeta = make("span", "dim");
     logHead.appendChild(node.logMeta);
-    var exportButton = button("export session json", "btn small push", exportSession);
-    logHead.appendChild(exportButton);
-    logPanel.appendChild(logHead);
+    logHead.appendChild(button("export session json", "btn small push", exportSession));
+    journal.paper.appendChild(logHead);
     node.log = make("ul", "log");
     node.log.setAttribute("aria-label", "What this bot did");
-    logPanel.appendChild(node.log);
-    ui.appendChild(logPanel);
+    journal.paper.appendChild(node.log);
+    ui.appendChild(journal.receipt);
   }
 
   function range(min, max, step, value, onInput) {
@@ -385,33 +412,36 @@
 
   function paintHero() {
     var t = state.tape;
-    $("hero-status").textContent = (state.timer ? "live" : "paused") + " · paper · synthetic tape · t " + t.t;
-    $("tape-meta").textContent = "· " + t.quotes.length + " pairs · " + state.bots.length + " bots";
-    $("tape-state").innerHTML = state.timer ? "<b>running</b>" : "paused";
+    $("hero-status").textContent = (state.timer ? "rec" : "paused") + " · paper mode · synthetic tape · t " + t.t;
+    $("tape-meta").textContent = t.quotes.length + " pairs · " + state.bots.length + " bots · one market";
+    $("tape-state").textContent = "session " + t.seed + " · t " + t.t + (state.timer ? " · printing" : " · paused");
 
     var tiles = $("tiles");
     tiles.textContent = "";
     t.quotes.forEach(function (quote) {
       var first = quote.history[0];
       var change = first ? (quote.price - first) / first : 0;
-      var tile = make("div", "tile");
-      var row = make("div", "row");
-      row.appendChild(make("span", "pair", quote.pair));
-      row.appendChild(make("span", change < 0 ? "r" : "g", (change < 0 ? "" : "+") + py.fixed(change * 100, 1) + "%"));
-      tile.appendChild(row);
-      tile.appendChild(make("div", "m", py.fixed(quote.price, 2)));
-      var chart = svg("svg", { viewBox: "0 0 100 30", preserveAspectRatio: "none", "aria-hidden": "true" });
-      chart.appendChild(svg("polyline", { points: sparkline(quote.history.slice(-60), 100, 30), class: change < 0 ? "down" : "up" }));
-      tile.appendChild(chart);
-      tiles.appendChild(tile);
+      var li = make("li");
+      li.appendChild(make("span", "pair", quote.pair));
+      var spark = make("span", "spark");
+      var chart = svg("svg", { viewBox: "0 0 100 16", preserveAspectRatio: "none", "aria-hidden": "true" });
+      chart.appendChild(svg("polyline", { points: sparkline(quote.history.slice(-60), 100, 16) }));
+      spark.appendChild(chart);
+      li.appendChild(spark);
+      li.appendChild(make("span", "px", py.fixed(quote.price, 2)));
+      li.appendChild(make("span", "chg " + (change < 0 ? "neg" : ""), (change < 0 ? "" : "+") + py.fixed(change * 100, 1) + "%"));
+      tiles.appendChild(li);
     });
 
     var feed = $("feed");
     feed.textContent = "";
-    state.feed.slice(-9).reverse().forEach(function (item) {
+    state.feed.slice(-8).reverse().forEach(function (item) {
       var li = make("li", item.entry.kind);
-      li.appendChild(make("span", "m", "t" + item.entry.t));
+      li.appendChild(make("span", "t", "t" + item.entry.t));
       li.appendChild(make("span", "who", item.bot ? item.bot.spec.title : "tape"));
+      if (item.entry.kind === "refused") li.appendChild(make("span", "stamp", "refused"));
+      if (item.entry.kind === "stopped") li.appendChild(make("span", "stamp", "stop"));
+      if (item.entry.kind === "refused" || item.entry.kind === "stopped") li.appendChild(document.createTextNode(" "));
       li.appendChild(make("span", "what", item.entry.source + ": " + item.entry.text));
       feed.appendChild(li);
     });
@@ -437,7 +467,7 @@
     $("st-tick").textContent = String(state.tape.t);
     var pnl = $("st-pnl");
     pnl.textContent = signed(sum.pnl);
-    pnl.className = sum.pnl < 0 ? "r" : "g";
+    pnl.className = sum.pnl < 0 ? "neg" : "pos";
 
     var bars = $("pulse");
     bars.textContent = "";
@@ -445,7 +475,7 @@
     for (var i = 0; i < 48; i++) {
       var p = state.pulse[i - (48 - state.pulse.length)];
       var bar = make("i", p && p.refusals ? "hot" : p && p.fills ? "fill" : "");
-      bar.style.height = (p ? Math.max(6, (p.total / peak) * 100) : 6) + "%";
+      bar.style.height = (p ? Math.max(5, (p.total / peak) * 100) : 5) + "%";
       bars.appendChild(bar);
     }
   }
@@ -460,13 +490,17 @@
     return log.length ? log[log.length - 1] : null;
   }
 
+  function pctText(s) {
+    return (s.pct < 0 ? "" : "+") + py.fixed(s.pct * 100, 2) + "%";
+  }
+
   function paintLeader() {
     var bot = ranked()[0];
     if (!bot) return;
     var s = stats(bot);
     var mark = $("leader-pnl");
-    mark.textContent = (s.pct < 0 ? "" : "+") + py.fixed(s.pct * 100, 2) + "%";
-    mark.className = "cv " + (s.pct < 0 ? "r" : "g");
+    mark.textContent = pctText(s);
+    mark.className = "pct " + (s.pct < 0 ? "neg" : "pos");
     $("leader-name").textContent = bot.spec.title;
     $("leader-copy").textContent =
       "Equity " + py.fixed(s.equity, 2) + " from " + py.numStr(bot.spec.cash) + ", after " +
@@ -484,51 +518,85 @@
     var order = bots.map(function (b) { return b.id; }).join("|");
     if (order !== state.order) {
       state.order = order;
-      bots.forEach(function (bot) { list.appendChild(row(bot)); });
+      bots.forEach(function (bot) { list.appendChild(card(bot)); });
     }
     bots.forEach(function (bot, i) {
-      var li = row(bot);
+      var li = card(bot);
       var s = stats(bot);
-      li.querySelector(".rank").textContent = (i < 9 ? "0" : "") + (i + 1);
-      var pnl = li.querySelector(".pnl");
-      pnl.textContent = (s.pct < 0 ? "" : "+") + py.fixed(s.pct * 100, 2) + "%";
-      pnl.className = "pnl " + (s.pct < 0 ? "r" : "g");
-      var meter = li.querySelector(".meter");
-      meter.className = "meter " + (s.pct < 0 ? "down" : "up");
-      var on = Math.round((Math.abs(s.pct) / best) * 10);
-      Array.prototype.forEach.call(meter.children, function (cell, j) { cell.className = j < on ? "on" : ""; });
-      li.querySelector(".halt").hidden = !bot.desk.halted;
+      var el = bot.els;
+      el.rank.textContent = "No. " + (i < 9 ? "0" : "") + (i + 1);
+      el.tick.textContent = "t " + state.tape.t;
+      el.pct.textContent = pctText(s);
+      el.pct.className = "pct " + (s.pct < 0 ? "neg" : "pos");
+      var on = Math.round((Math.abs(s.pct) / best) * 12);
+      el.meter.textContent = new Array(on + 1).join("█") + new Array(12 - on + 1).join("░");
+      el.meter.className = "meter " + (s.pct < 0 ? "neg" : "");
+      el.equity.textContent = py.fixed(s.equity, 2);
+      el.fills.textContent = String(bot.desk.counts.filled);
+      el.refused.textContent = String(bot.desk.counts.refused);
+      el.refused.className = bot.desk.counts.refused ? "neg" : "";
+      el.stops.textContent = String(bot.desk.counts.stopped);
+      el.halt.hidden = !bot.desk.halted;
       var last = lastWord(bot);
-      var line = li.querySelector(".botline");
-      line.textContent = riskLine(bot.spec) + " · equity " + py.fixed(s.equity, 2) + " · " +
-        bot.desk.counts.filled + " fills · " + bot.desk.counts.refused + " refused · " + bot.desk.counts.stopped + " stops";
-      if (last) {
-        line.appendChild(document.createTextNode(" · last: "));
-        line.appendChild(make("span", "last-" + last.kind, last.source + ": " + last.text));
-      }
+      el.last.className = "last " + (last ? last.kind : "");
+      el.last.textContent = last ? "t" + last.t + " " + last.source + ": " + last.text : "waiting for a signal";
     });
   }
 
-  function row(bot) {
+  function card(bot) {
     if (bot.row) return bot.row;
+    var el = {};
     var li = make("li");
-    li.appendChild(make("span", "rank"));
-    var body = make("div");
+    var sheetEl = sheet();
+    var paper = sheetEl.paper;
+
+    var no = make("div", "no");
+    el.rank = make("span");
+    el.tick = make("span");
+    no.appendChild(el.rank);
+    no.appendChild(el.tick);
+    paper.appendChild(no);
+
     var name = button(bot.spec.title, "botname", function () { takeWheel(bot); });
     name.setAttribute("aria-label", "Take the wheel of " + bot.spec.title);
-    body.appendChild(name);
-    body.appendChild(make("span", "tag" + (bot.desk.risk.spot ? " spot" : ""), bot.spec.venue + (bot.desk.risk.spot ? " · spot" : "")));
-    if (bot.custom) body.appendChild(make("span", "tag mine", "yours"));
-    var halt = make("span", "tag halt", "halted");
-    halt.hidden = true;
-    body.appendChild(halt);
-    var meter = make("div", "meter");
-    meter.setAttribute("aria-hidden", "true");
-    for (var i = 0; i < 10; i++) meter.appendChild(make("i"));
-    body.appendChild(meter);
-    li.appendChild(body);
-    li.appendChild(make("span", "pnl"));
-    li.appendChild(make("p", "botline"));
+    paper.appendChild(name);
+    paper.appendChild(make("div", "dim", riskLine(bot.spec)));
+
+    var tags = make("div", "tags");
+    if (bot.desk.risk.spot) tags.appendChild(make("span", "stamp ink", "spot only"));
+    if (bot.custom) tags.appendChild(make("span", "stamp ok", "yours"));
+    el.halt = make("span", "stamp", "halted");
+    el.halt.hidden = true;
+    tags.appendChild(el.halt);
+    paper.appendChild(tags);
+
+    paper.appendChild(make("hr", "cut"));
+    el.pct = make("div", "pct");
+    paper.appendChild(el.pct);
+    el.meter = make("div", "meter");
+    el.meter.setAttribute("aria-hidden", "true");
+    paper.appendChild(el.meter);
+
+    var lines = make("dl", "lines");
+    [["equity", "equity"], ["fills", "fills"], ["refused by risk.py", "refused"], ["stops hit", "stops"]].forEach(function (pair) {
+      var row = make("div");
+      row.appendChild(make("dt", null, pair[0]));
+      el[pair[1]] = make("dd", pair[1] === "refused" ? "neg" : null);
+      row.appendChild(el[pair[1]]);
+      lines.appendChild(row);
+    });
+    paper.appendChild(lines);
+
+    el.last = make("p", "last");
+    paper.appendChild(el.last);
+
+    var foot = make("div", "foot");
+    foot.appendChild(make("span", "dim", "paper · synthetic"));
+    foot.appendChild(button("take the wheel", "btn small", function () { takeWheel(bot); }));
+    paper.appendChild(foot);
+
+    li.appendChild(sheetEl.receipt);
+    bot.els = el;
     bot.row = li;
     return li;
   }
@@ -546,9 +614,9 @@
     Array.prototype.forEach.call(node.botChips.children, function (chip) {
       chip.setAttribute("aria-pressed", String(chip.textContent === bot.spec.title));
     });
-    node.price.textContent = state.pair + " " + py.fixed(quote.price, 2) + " · t " + state.tape.t;
-    node.seed.textContent = "seed " + state.tape.seed;
-    node.caps.textContent = "cap " + py.fixed(cap, 2) + " · stop " + percent(bot.spec.stop_loss) + " · " + py.numStr(bot.spec.leverage) + "x";
+    node.price.textContent = state.pair + " " + py.fixed(quote.price, 2);
+    node.seed.textContent = "session " + state.tape.seed + " · t " + state.tape.t;
+    node.caps.textContent = bot.spec.title + " · cap " + py.fixed(cap, 2) + " · stop " + percent(bot.spec.stop_loss) + " · " + py.numStr(bot.spec.leverage) + "x";
     node.auto.checked = desk.autopilot;
     node.close.disabled = !position;
     node.long.disabled = !!position || desk.halted;
@@ -563,30 +631,29 @@
       ["equity", py.fixed(equity, 2)],
       ["realised", signed(desk.realised)],
       ["open pnl", signed(open)],
+      ["order size", py.fixed((cap * Number(node.size.value)) / 100, 2) + " (" + node.size.value + "% of cap)"],
       ["position", position
-        ? position.side + " " + py.fixed(position.notional, 2) + " @ " + py.fixed(position.entry, 2) + " · stop " + py.fixed(position.stop, 2)
+        ? position.side + " " + py.fixed(position.notional, 2) + " @ " + py.fixed(position.entry, 2)
         : "flat"],
+      ["stop", position ? py.fixed(position.stop, 2) : "—"],
     ].forEach(function (pair) {
-      var cell = make("div");
-      cell.appendChild(make("dt", null, pair[0]));
-      cell.appendChild(make("dd", null, pair[1]));
-      node.stats.appendChild(cell);
+      var row = make("div");
+      row.appendChild(make("dt", null, pair[0]));
+      row.appendChild(make("dd", null, pair[1]));
+      node.stats.appendChild(row);
     });
 
-    node.ticketNote.innerHTML = "";
-    node.ticketNote.appendChild(document.createTextNode(
-      "size " + node.size.value + "% of the cap = " + py.fixed((cap * Number(node.size.value)) / 100, 2) + ". "));
-    var b = make("b", null, "Every order goes through the risk.py this spec generates");
-    node.ticketNote.appendChild(b);
-    node.ticketNote.appendChild(document.createTextNode(
-      ", and so does the stop. Push the size past 100% or the leverage past the spec to hear it say no" +
-      (desk.risk.spot ? ", or try a short: this is a spot chain." : ".")));
+    node.ticketNote.textContent =
+      "Every order goes through the risk.py this spec generates, and so does the stop. " +
+      "Push the size past 100% or the leverage past the spec to get it stamped" +
+      (desk.risk.spot ? ", or try a short: this is a spot chain." : ".") +
+      (position ? " Close the open position to place a new one." : "");
 
     node.logMeta.textContent = desk.counts.filled + " fills · " + desk.counts.refused + " refused · " + desk.counts.stopped + " stops";
     node.log.textContent = "";
     desk.log.slice(-60).reverse().forEach(function (entry) {
       var li = make("li", entry.kind);
-      li.appendChild(make("span", "m", "t" + entry.t));
+      li.appendChild(make("span", "dim", "t" + entry.t));
       var src = entry.by && entry.by !== entry.source ? entry.by + " → " + entry.source : entry.source;
       li.appendChild(make("span", "src", src));
       li.appendChild(make("span", "txt", entry.text));
@@ -663,10 +730,10 @@
   /* ---- start --------------------------------------------------------- */
 
   buildDesk();
-  ["tiles", "feed", "rack", "leader", "bot-list", "desk-ui"].forEach(function (id) { $(id).hidden = false; });
+  ["tiles", "tiles-cut", "feed", "rack", "leader", "bot-list", "desk-ui"].forEach(function (id) { $(id).hidden = false; });
   ["console-nojs", "bots-nojs", "desk-nojs"].forEach(function (id) { $(id).hidden = true; });
   $("leader-take").addEventListener("click", function () { if (state.leader) takeWheel(state.leader); });
-  if (reduceMotion) $("console-foot").textContent = "paused because your system asks for reduced motion · press run on the desk";
+  if (reduceMotion) $("console-foot").textContent = "paused: your system asks for reduced motion · press run on the desk";
   window.DegeneratorFleet = { launched: function () { return state.bots.length; } };
   boot(1);
 })();
