@@ -158,42 +158,76 @@
     };
   }
 
-  function create(spec, options) {
+  // One synthetic market. A desk made on its own gets a tape of its own; the
+  // site hands one tape to every bot, so BTC is the same BTC for all of them
+  // and the only thing that differs between bots is the risk.py they carry.
+  function tape(options) {
     options = options || {};
-    var desk = {
+    var seed = options.seed === undefined ? 1 : options.seed >>> 0;
+    return {
       synthetic: true,
-      seed: options.seed === undefined ? 1 : options.seed >>> 0,
-      spec: spec,
-      risk: Risk(spec),
+      seed: seed,
       t: 0,
       volatility: options.volatility === undefined ? 0.006 : options.volatility,
       trend: options.trend === undefined ? 0 : options.trend,
+      quotes: [],
+      random: mulberry32(seed),
+      spare: null,
+    };
+  }
+
+  function quoteOn(tape, pair) {
+    for (var i = 0; i < tape.quotes.length; i++) {
+      if (tape.quotes[i].pair === pair) return tape.quotes[i];
+    }
+    var price = placeholderPrice(pair);
+    var quote = { pair: pair, price: price, history: [price], shock: 0 };
+    tape.quotes.push(quote);
+    return quote;
+  }
+
+  function create(spec, options) {
+    options = options || {};
+    var shared = options.tape || null;
+    var own = shared || tape(options);
+    var desk = {
+      synthetic: true,
+      spec: spec,
+      risk: Risk(spec),
+      tape: own,
+      shared: !!shared,
       autopilot: false,
+      ask: options.ask || null,
       cash: spec.cash.v,
       realised: 0,
       halted: false,
-      markets: spec.pairs.map(function (pair) {
-        var price = placeholderPrice(pair);
-        return { pair: pair, price: price, history: [price], shock: 0 };
-      }),
+      markets: spec.pairs.map(function (pair) { return quoteOn(own, pair); }),
       positions: {},
       log: [],
+      serial: 0,
+      counts:{ filled: 0, refused: 0, stopped: 0, closed: 0 },
     };
-    desk.random = mulberry32(desk.seed);
-    desk.spare = null;
+    // Read through to the tape, so a desk keeps the shape it always had.
+    ["seed", "t", "volatility", "trend"].forEach(function (key) {
+      Object.defineProperty(desk, key, {
+        enumerable: true,
+        get: function () { return own[key]; },
+        set: function (value) { own[key] = value; },
+      });
+    });
     return desk;
   }
 
-  function normal(desk) {
-    if (desk.spare !== null) {
-      var spare = desk.spare;
-      desk.spare = null;
+  function normal(tape) {
+    if (tape.spare !== null) {
+      var spare = tape.spare;
+      tape.spare = null;
       return spare;
     }
-    var u = 1 - desk.random();
-    var v = desk.random();
+    var u = 1 - tape.random();
+    var v = tape.random();
     var radius = Math.sqrt(-2 * Math.log(u));
-    desk.spare = radius * Math.sin(2 * Math.PI * v);
+    tape.spare = radius * Math.sin(2 * Math.PI * v);
     return radius * Math.cos(2 * Math.PI * v);
   }
 
@@ -221,6 +255,8 @@
 
   function note(desk, entry) {
     entry.t = desk.t;
+    entry.n = ++desk.serial;
+    if (Object.prototype.hasOwnProperty.call(desk.counts, entry.kind)) desk.counts[entry.kind] += 1;
     desk.log.push(entry);
     if (desk.log.length > 400) desk.log.shift();
     return entry;
@@ -284,8 +320,9 @@
     var gain = unrealised(position, price);
     desk.realised += gain;
     delete desk.positions[pair];
+    var who = { stop: "risk.py", signal: "autopilot", halt: "desk" }[why] || "you";
     return note(desk, {
-      kind: why === "stop" ? "stopped" : "closed", source: why === "stop" ? "risk.py" : "you", pair: pair,
+      kind: why === "stop" ? "stopped" : "closed", source: who, by: who, pair: pair,
       text: (why === "stop" ? "stop hit on " : "closed " + position.side + " ") + pair +
         " at " + py.fixed(price, 2) +
         (why === "stop" ? " (stop " + py.fixed(position.stop, 2) + ")" : "") +
@@ -298,6 +335,19 @@
     var total = 0;
     for (var i = history.length - length; i < history.length; i++) total += history[i];
     return total / length;
+  }
+
+  // The demo strategy sizes at the cap unless it was given an appetite of its
+  // own, a share of equity it asks for without reading the spec. Then risk.py
+  // gets the ask first, and a strategy that is told no comes back at the cap,
+  // which is how a sizing bug meets a risk module in a real repository.
+  function enter(desk, pair, side) {
+    var cap = desk.risk.maxNotional(equity(desk));
+    if (desk.ask) {
+      var entry = submit(desk, { pair: pair, side: side, notional: equity(desk) * desk.ask, by: "autopilot" });
+      if (entry.kind !== "refused" || entry.source !== "risk.py") return entry;
+    }
+    return submit(desk, { pair: pair, side: side, notional: cap, by: "autopilot" });
   }
 
   // A demo strategy, and only that: an 8 over 21 moving-average cross. It is
@@ -317,31 +367,22 @@
 
       if (crossedUp) {
         if (open && open.side === "short") close(desk, quote.pair, "signal");
-        if (!desk.positions[quote.pair]) {
-          submit(desk, {
-            pair: quote.pair, side: "long", notional: desk.risk.maxNotional(equity(desk)), by: "autopilot",
-          });
-        }
+        if (!desk.positions[quote.pair]) enter(desk, quote.pair, "long");
       } else if (crossedDown) {
         if (open && open.side === "long") close(desk, quote.pair, "signal");
         // A spot chain has nothing to borrow, so the demo strategy stands
         // aside rather than sending an order risk.py would only refuse.
-        if (!desk.risk.spot && !desk.positions[quote.pair]) {
-          submit(desk, {
-            pair: quote.pair, side: "short", notional: desk.risk.maxNotional(equity(desk)), by: "autopilot",
-          });
-        }
+        if (!desk.risk.spot && !desk.positions[quote.pair]) enter(desk, quote.pair, "short");
       }
     });
   }
 
-  function tick(desk) {
-    if (desk.halted) return desk;
-    desk.t += 1;
-
-    desk.markets.forEach(function (quote) {
-      var z = normal(desk);
-      var factor = Math.exp(desk.trend - (desk.volatility * desk.volatility) / 2 + desk.volatility * z);
+  // Moves every price on the tape by one step.
+  function advance(tape) {
+    tape.t += 1;
+    tape.quotes.forEach(function (quote) {
+      var z = normal(tape);
+      var factor = Math.exp(tape.trend - (tape.volatility * tape.volatility) / 2 + tape.volatility * z);
       if (quote.shock) {
         factor *= 1 + quote.shock;
         quote.shock = 0;
@@ -350,6 +391,20 @@
       quote.history.push(quote.price);
       if (quote.history.length > HISTORY) quote.history.shift();
     });
+    return tape;
+  }
+
+  // A desk on its own tape moves the market and then reacts to it. On a
+  // shared tape the market is moved once by whoever owns it, and each desk
+  // only reacts.
+  function tick(desk) {
+    if (desk.halted) return desk;
+    if (!desk.shared) advance(desk.tape);
+    return react(desk);
+  }
+
+  function react(desk) {
+    if (desk.halted) return desk;
 
     desk.markets.forEach(function (quote) {
       var position = desk.positions[quote.pair];
@@ -412,11 +467,21 @@
     };
   }
 
+  // A jump on a shared tape, felt by every desk that holds the pair.
+  function jolt(tape, pair, percent) {
+    quoteOn(tape, pair).shock = percent;
+  }
+
   return {
     HISTORY: HISTORY,
     placeholderPrice: placeholderPrice,
     Risk: Risk,
+    tape: tape,
+    quote: quoteOn,
     create: create,
+    advance: advance,
+    react: react,
+    jolt: jolt,
     tick: tick,
     submit: submit,
     close: close,

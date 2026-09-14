@@ -8,7 +8,9 @@ actually writes, scaffolded into a temp directory and imported for the purpose.
 
 The rest of the file checks the desk itself: the same seed replays exactly, a
 stop-loss closes a position and says risk.py did it, the demo strategy never
-sends a short to a spot chain, and the session export is marked synthetic.
+sends a short to a spot chain, and the session export is marked synthetic. The
+site runs several bots on one tape, so that is checked too: one market for all
+of them, moved once a step, and a bot on it trades exactly as it would alone.
 
 Needs Node. Locally a missing node is a skip; in CI it is a failure.
 """
@@ -122,7 +124,7 @@ process.stdin.on("end", () => {
   if (job.scripts) {
     out.scripts = job.scripts.map((script) => {
       const spec = gen.parse(script.spec, "desk.spec.md");
-      const desk = sim.create(spec, { seed: script.seed, volatility: script.volatility });
+      const desk = sim.create(spec, { seed: script.seed, volatility: script.volatility, ask: script.ask });
       script.steps.forEach((step) => {
         if (step.tick) for (let i = 0; i < step.tick; i++) sim.tick(desk);
         if (step.submit) sim.submit(desk, step.submit);
@@ -137,6 +139,26 @@ process.stdin.on("end", () => {
         }, 0);
       return { session: sim.session(desk), equity: sim.equity(desk), parts: parts, halted: desk.halted };
     });
+  }
+
+  if (job.fleet) {
+    const tape = sim.tape({ seed: job.fleet.seed });
+    const desks = job.fleet.specs.map((text) => {
+      const desk = sim.create(gen.parse(text, "desk.spec.md"), { tape: tape, ask: job.fleet.ask });
+      desk.autopilot = true;
+      return desk;
+    });
+    for (let i = 0; i < job.fleet.ticks; i++) {
+      sim.advance(tape);
+      desks.forEach((desk) => sim.react(desk));
+    }
+    out.fleet = {
+      t: tape.t,
+      desks: desks.map((desk) => ({
+        session: sim.session(desk),
+        prices: desk.markets.map((m) => [m.pair, m.history.slice()]),
+      })),
+    };
   }
 
   process.stdout.write(JSON.stringify(out));
@@ -276,6 +298,9 @@ class TestTheDeskItself(unittest.TestCase):
         filled = [row for row in log if row["kind"] == "filled"]
         self.assertTrue(filled, "the demo strategy never opened anything")
         self.assertTrue(all(row["by"] == "autopilot" for row in filled))
+        closed = [row for row in log if row["kind"] == "closed"]
+        self.assertTrue(closed, "the demo strategy never closed on a signal")
+        self.assertTrue(all(row["source"] == "autopilot" for row in closed), "nobody pressed close: " + repr(closed))
 
     def test_equity_is_cash_plus_realised_plus_what_is_open(self):
         script = {
@@ -285,6 +310,40 @@ class TestTheDeskItself(unittest.TestCase):
         }
         result = run_driver({"scripts": [script]})["scripts"][0]
         self.assertEqual(result["parts"], result["equity"])
+
+    def test_bots_on_one_tape_see_one_market(self):
+        fleet = run_driver({"fleet": {"specs": [SPECS[0], SPECS[2], SPECS[3]], "seed": 4, "ticks": 90}})["fleet"]
+        self.assertEqual(90, fleet["t"], "the tape must move once a step, however many bots read it")
+        btc = [dict(desk["prices"])["BTC"] for desk in fleet["desks"]]
+        self.assertEqual(91, len(btc[0]))
+        self.assertEqual(btc[0], btc[1])
+        self.assertEqual(btc[0], btc[2])
+
+    def test_one_bot_on_a_shared_tape_trades_like_a_bot_on_its_own(self):
+        solo = {"spec": SPECS[0], "seed": 9, "steps": [{"autopilot": True}, {"tick": 300}]}
+        alone = run_driver({"scripts": [solo]})["scripts"][0]["session"]
+        shared = run_driver({"fleet": {"specs": [SPECS[0]], "seed": 9, "ticks": 300}})["fleet"]
+        self.assertTrue(alone["log"], "nothing traded, so this proves nothing")
+        self.assertEqual(alone, shared["desks"][0]["session"])
+
+    def test_a_greedy_strategy_is_told_no_and_comes_back_at_the_cap(self):
+        script = {"spec": SPECS[0], "seed": 11, "ask": 0.5, "steps": [{"autopilot": True}, {"tick": 400}]}
+        log = run_driver({"scripts": [script]})["scripts"][0]["session"]["log"]
+        refused = [i for i, row in enumerate(log) if row["kind"] == "refused"]
+        self.assertTrue(refused, "an ask of half the equity must meet the 15% cap")
+        for i in refused:
+            self.assertEqual("risk.py", log[i]["source"])
+            self.assertEqual("autopilot", log[i]["by"])
+            self.assertIn("over the cap", log[i]["text"])
+            self.assertEqual("filled", log[i + 1]["kind"], "a refused ask is followed by the order at the cap")
+            self.assertEqual(log[i]["t"], log[i + 1]["t"])
+
+    def test_a_greedy_strategy_still_leaves_the_spot_chain_unshorted(self):
+        script = {"spec": SPECS[1], "seed": 11, "ask": 0.5, "steps": [{"autopilot": True}, {"tick": 400}]}
+        log = run_driver({"scripts": [script]})["scripts"][0]["session"]["log"]
+        self.assertTrue(log)
+        for row in log:
+            self.assertNotIn("short", row["text"], row)
 
     def test_the_session_says_it_is_synthetic(self):
         script = {"spec": SPECS[0], "seed": 2, "steps": [{"tick": 5}]}
